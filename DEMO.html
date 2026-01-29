@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>urdigest - Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'instagram-pink': '#E4405F',
+                        'instagram-purple': '#833AB4',
+                        'instagram-orange': '#F77737',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gradient-to-b from-white to-gray-50">
+    <!-- Navigation -->
+    <nav class="border-b bg-white/50 backdrop-blur-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-2">
+                    <span class="text-2xl">📧</span>
+                    <span class="text-xl font-bold bg-gradient-to-r from-instagram-pink to-instagram-purple bg-clip-text text-transparent">
+                        urdigest
+                    </span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="#demo" class="text-gray-600 hover:text-gray-900 font-medium">Demo</a>
+                    <button onclick="showLogin()" class="text-gray-600 hover:text-gray-900 font-medium">Log in</button>
+                    <button onclick="showSignup()" class="bg-instagram-pink text-white px-4 py-2 rounded-lg font-medium hover:bg-instagram-pink/90 transition">
+                        Get Started
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 text-center">
+        <h1 class="text-5xl sm:text-6xl font-bold text-gray-900 mb-6">
+            Turn Instagram Saves into
+            <br />
+            <span class="bg-gradient-to-r from-instagram-pink via-instagram-purple to-instagram-orange bg-clip-text text-transparent">
+                Daily Email Digests
+            </span>
+        </h1>
+        <p class="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+            Stop letting saved posts pile up. Get AI-summarized digests of your Instagram saves delivered every morning.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <button onclick="showSignup()" class="bg-instagram-pink text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-instagram-pink/90 transition shadow-lg">
+                Start Free Trial
+            </button>
+            <a href="#demo" class="bg-white text-gray-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-50 transition border-2 border-gray-200">
+                See Demo
+            </a>
+        </div>
+        <p class="text-sm text-gray-500 mt-4">
+            First digest free. Then $5/month.
+        </p>
+    </section>
+
+    <!-- Demo Section -->
+    <section id="demo" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <h2 class="text-3xl font-bold text-center mb-12">Live Demo</h2>
+
+        <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden max-w-4xl mx-auto">
+            <div class="bg-gray-800 px-4 py-3 flex items-center space-x-2">
+                <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                <span class="text-gray-400 text-sm ml-4">Dashboard</span>
+            </div>
+
+            <!-- Dashboard Demo -->
+            <div class="p-8">
+                <div class="mb-6">
+                    <h3 class="text-2xl font-bold text-gray-900 mb-2">Your Saved Posts</h3>
+                    <p class="text-gray-600">3 posts saved</p>
+                </div>
+
+                <!-- Stats -->
+                <div class="grid grid-cols-3 gap-4 mb-8">
+                    <div class="bg-white rounded-lg border border-gray-200 p-4">
+                        <div class="text-sm text-gray-600 mb-1">Total Posts Saved</div>
+                        <div class="text-3xl font-bold text-gray-900">47</div>
+                    </div>
+                    <div class="bg-white rounded-lg border border-gray-200 p-4">
+                        <div class="text-sm text-gray-600 mb-1">Digests Sent</div>
+                        <div class="text-3xl font-bold text-gray-900">12</div>
+                    </div>
+                    <div class="bg-white rounded-lg border border-gray-200 p-4">
+                        <div class="text-sm text-gray-600 mb-1">Subscription</div>
+                        <div class="text-xl font-bold text-gray-900">Active</div>
+                    </div>
+                </div>
+
+                <!-- Posts Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Sample Post 1 -->
+                    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition">
+                        <div class="h-48 bg-gradient-to-br from-purple-400 to-pink-400"></div>
+                        <div class="p-4">
+                            <p class="text-sm font-semibold text-gray-900 mb-2">@design_inspiration</p>
+                            <p class="text-sm text-gray-600 mb-3">Amazing color palette for modern UI design 🎨</p>
+                            <div class="flex items-center justify-between text-xs text-gray-500 mb-3">
+                                <span>Today</span>
+                                <span class="text-green-600">✓ In digest</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded text-sm font-medium hover:bg-gray-200 transition">
+                                    View Post
+                                </button>
+                                <button class="bg-red-50 text-red-600 px-3 py-2 rounded text-sm font-medium hover:bg-red-100 transition">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sample Post 2 -->
+                    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition">
+                        <div class="h-48 bg-gradient-to-br from-blue-400 to-cyan-400"></div>
+                        <div class="p-4">
+                            <p class="text-sm font-semibold text-gray-900 mb-2">@productivity_hacks</p>
+                            <p class="text-sm text-gray-600 mb-3">5 morning routines that changed my life ☀️</p>
+                            <div class="flex items-center justify-between text-xs text-gray-500 mb-3">
+                                <span>Today</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded text-sm font-medium hover:bg-gray-200 transition">
+                                    View Post
+                                </button>
+                                <button class="bg-red-50 text-red-600 px-3 py-2 rounded text-sm font-medium hover:bg-red-100 transition">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sample Post 3 -->
+                    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition">
+                        <div class="h-48 bg-gradient-to-br from-green-400 to-emerald-400"></div>
+                        <div class="p-4">
+                            <p class="text-sm font-semibold text-gray-900 mb-2">@startup_tips</p>
+                            <p class="text-sm text-gray-600 mb-3">How we got our first 100 customers in 30 days 🚀</p>
+                            <div class="flex items-center justify-between text-xs text-gray-500 mb-3">
+                                <span>Yesterday</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded text-sm font-medium hover:bg-gray-200 transition">
+                                    View Post
+                                </button>
+                                <button class="bg-red-50 text-red-600 px-3 py-2 rounded text-sm font-medium hover:bg-red-100 transition">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-12">
+            <p class="text-gray-600 mb-4">This is a working demo showing the dashboard interface.</p>
+            <p class="text-gray-600">The full app includes AI summarization, email delivery, and payment processing.</p>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <h2 class="text-3xl font-bold text-center mb-12">How it works</h2>
+        <div class="grid md:grid-cols-3 gap-8">
+            <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+                <div class="text-4xl mb-4">1️⃣</div>
+                <h3 class="text-xl font-semibold mb-3">Share Posts</h3>
+                <p class="text-gray-600">
+                    Share Instagram posts to @urdigest throughout the day via DM.
+                </p>
+            </div>
+            <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+                <div class="text-4xl mb-4">2️⃣</div>
+                <h3 class="text-xl font-semibold mb-3">AI Summarizes</h3>
+                <p class="text-gray-600">
+                    Our AI reads each post and creates engaging summaries highlighting key insights.
+                </p>
+            </div>
+            <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+                <div class="text-4xl mb-4">3️⃣</div>
+                <h3 class="text-xl font-semibold mb-3">Wake Up to Your Digest</h3>
+                <p class="text-gray-600">
+                    Get a beautiful email digest every morning at 6am with all your saved posts.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Status Banner -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 text-center">
+            <h3 class="text-xl font-bold text-blue-900 mb-2">✅ MVP Complete & Ready to Deploy</h3>
+            <p class="text-blue-700 mb-4">
+                This is a static demo. The full application is production-ready with:
+            </p>
+            <div class="grid md:grid-cols-4 gap-4 text-sm">
+                <div class="text-blue-800">✅ Backend API</div>
+                <div class="text-blue-800">✅ AI Summarization</div>
+                <div class="text-blue-800">✅ Email Delivery</div>
+                <div class="text-blue-800">✅ Stripe Payments</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t bg-white mt-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex items-center space-x-2">
+                    <span class="text-2xl">📧</span>
+                    <span class="text-xl font-bold">urdigest</span>
+                </div>
+                <div class="flex gap-6 text-sm text-gray-600">
+                    <a href="#" class="hover:text-gray-900">Privacy</a>
+                    <a href="#" class="hover:text-gray-900">Terms</a>
+                    <a href="mailto:archontechnologiesllc@gmail.com" class="hover:text-gray-900">Contact</a>
+                </div>
+                <div class="text-sm text-gray-500">
+                    © 2026 urdigest. All rights reserved.
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function showLogin() {
+            alert('Login functionality requires the full Next.js app to be deployed.\n\nTo run the app:\n1. Follow the DEPLOYMENT_GUIDE.md\n2. Set up accounts (Supabase, Stripe, etc.)\n3. Deploy to Vercel\n\nThis is just a static demo showing the UI!');
+        }
+
+        function showSignup() {
+            alert('Signup functionality requires the full Next.js app to be deployed.\n\nThe complete codebase is ready in the urdigest-app folder!\n\nTo launch:\n1. Create required accounts\n2. Set environment variables\n3. Deploy to Vercel\n\nSee DEPLOYMENT_GUIDE.md for step-by-step instructions.');
+        }
+    </script>
+</body>
+</html>
