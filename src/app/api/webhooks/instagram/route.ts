@@ -3,6 +3,8 @@ import crypto from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { sendInstagramMessage } from '@/lib/instagram/send-message'
 
+export const dynamic = 'force-dynamic'
+
 // Verify webhook signature (Meta requirement)
 function verifySignature(signature: string, body: string): boolean {
   const appSecret = process.env.INSTAGRAM_APP_SECRET
