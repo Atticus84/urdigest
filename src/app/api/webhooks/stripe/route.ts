@@ -5,11 +5,15 @@ import { sendPaymentFailedEmail } from '@/lib/email/send'
 
 export const dynamic = 'force-dynamic'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia' as any,
-})
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: '2024-12-18.acacia' as any,
+  })
+}
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
+function getWebhookSecret() {
+  return process.env.STRIPE_WEBHOOK_SECRET!
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,7 +23,7 @@ export async function POST(request: NextRequest) {
     let event: Stripe.Event
 
     try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
+      event = getStripe().webhooks.constructEvent(body, signature, getWebhookSecret())
     } catch (err: any) {
       console.error('Webhook signature verification failed:', err.message)
       return NextResponse.json(

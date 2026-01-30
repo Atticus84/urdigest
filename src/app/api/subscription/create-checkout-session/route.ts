@@ -4,9 +4,11 @@ import { createClient } from '@/lib/supabase/server'
 import { ensureUserProfileServer } from '@/lib/supabase/ensure-profile-server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia' as any,
-})
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: '2024-12-18.acacia' as any,
+  })
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +40,7 @@ export async function POST(request: NextRequest) {
     let customerId = user.stripe_customer_id
 
     if (!customerId) {
-      const customer = await stripe.customers.create({
+      const customer = await getStripe().customers.create({
         email: user.email,
         metadata: {
           user_id: user.id,
@@ -54,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create checkout session
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],

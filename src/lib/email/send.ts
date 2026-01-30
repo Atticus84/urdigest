@@ -1,7 +1,11 @@
 import { Resend } from 'resend'
 import { DigestEmail } from '@/emails/digest'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+let _resend: Resend | null = null
+function getResend() {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY)
+  return _resend
+}
 
 export interface EmailPost {
   id: string
@@ -26,7 +30,7 @@ export async function sendDigestEmail(
       date,
     })
 
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: 'urdigest <digest@urdigest.com>',
       to,
       subject,
@@ -49,7 +53,7 @@ export async function sendDigestEmail(
 
 export async function sendTrialEndedEmail(to: string): Promise<void> {
   try {
-    await resend.emails.send({
+    await getResend().emails.send({
       from: 'urdigest <hello@urdigest.com>',
       to,
       subject: 'Your urdigest trial has ended',
@@ -72,7 +76,7 @@ export async function sendTrialEndedEmail(to: string): Promise<void> {
 
 export async function sendPaymentFailedEmail(to: string): Promise<void> {
   try {
-    await resend.emails.send({
+    await getResend().emails.send({
       from: 'urdigest <hello@urdigest.com>',
       to,
       subject: 'Payment failed - Update your payment method',

@@ -1,9 +1,11 @@
 import OpenAI from 'openai'
 import { SavedPost } from '@/types/database'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+let _openai: OpenAI | null = null
+function getOpenAI() {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  return _openai
+}
 
 export interface PostSummary {
   post_index: number
@@ -54,7 +56,7 @@ IMPORTANT: Return ONLY the JSON array, no other text.
 `
 
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
