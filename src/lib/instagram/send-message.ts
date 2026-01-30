@@ -11,24 +11,25 @@ export async function sendInstagramMessage(recipientId: string, text: string): P
 
   try {
     const response = await fetch(
-      `https://graph.instagram.com/v21.0/me/messages`,
+      `https://graph.instagram.com/v21.0/me/messages?access_token=${accessToken}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipient: { id: recipientId },
           message: { text },
-          access_token: accessToken,
         }),
       }
     )
 
+    const responseData = await response.json()
+
     if (!response.ok) {
-      const error = await response.json()
-      console.error('Failed to send Instagram message:', error)
+      console.error('Failed to send Instagram message:', JSON.stringify(responseData))
       return false
     }
 
+    console.log('Instagram message sent successfully to', recipientId)
     return true
   } catch (error) {
     console.error('Error sending Instagram message:', error)

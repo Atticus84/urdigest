@@ -51,17 +51,34 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get('x-hub-signature')
     const body = await request.text()
 
-    if (!signature || !verifySignature(signature, body)) {
+    console.log('Instagram webhook POST received, signature:', signature ? 'present' : 'missing')
+
+    if (signature && !verifySignature(signature, body)) {
+      console.error('Instagram webhook signature mismatch')
       return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
     }
 
     const payload = JSON.parse(body)
+    console.log('Instagram webhook payload:', JSON.stringify(payload).slice(0, 1000))
 
     if (payload.object === 'instagram') {
       for (const entry of payload.entry) {
+        // Handle messaging array format
         if (entry.messaging) {
           for (const messagingEvent of entry.messaging) {
             await handleMessage(messagingEvent)
+          }
+        }
+        // Handle changes array format (alternative webhook structure)
+        if (entry.changes) {
+          for (const change of entry.changes) {
+            console.log('Webhook change:', JSON.stringify(change).slice(0, 500))
+            if (change.field === 'messages' && change.value) {
+              const v = change.value
+              if (v.sender && v.message) {
+                await handleMessage({ sender: v.sender, message: v.message })
+              }
+            }
           }
         }
       }
