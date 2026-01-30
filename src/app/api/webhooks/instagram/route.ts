@@ -66,6 +66,11 @@ export async function POST(request: NextRequest) {
         // Handle messaging array format
         if (entry.messaging) {
           for (const messagingEvent of entry.messaging) {
+            // Skip non-message events (message_edit, message_reactions, etc.)
+            if (!messagingEvent.sender || !messagingEvent.message) {
+              console.log('Skipping non-message event:', JSON.stringify(messagingEvent).slice(0, 200))
+              continue
+            }
             await handleMessage(messagingEvent)
           }
         }
