@@ -213,58 +213,127 @@ async function handleMessage(event: any) {
 async function handleNewUser(instagramUserId: string) {
   console.log(`=== handleNewUser START for Instagram ID: ${instagramUserId} ===`)
   
-  // Create auth user first (required for foreign key constraint)
   const email = `pending_${instagramUserId}@placeholder.urdigest`
-  const password = crypto.randomUUID() // Random password, user won't use it
+  let newUserId: string | null = null
   
-  console.log(`Creating auth user with email: ${email}`)
-  const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true, // Auto-confirm since they're signing up via Instagram
-  })
-
-  if (authError || !authUser?.user) {
-    console.error('❌ Failed to create auth user for Instagram ID:', instagramUserId, {
-      error: authError?.message,
-      code: authError?.status,
-    })
-    console.log('=== handleNewUser END (auth error) ===')
-    return
-  }
-
-  const newUserId = authUser.user.id
-  console.log(`✅ Auth user created with ID: ${newUserId}`)
-  
-  // Now create the user profile
-  const { error, data } = await supabaseAdmin
+  // Check if user profile already exists (might have been partially created)
+  const { data: existingUser } = await supabaseAdmin
     .from('users')
-    .insert({
-      id: newUserId,
-      email: email,
-      instagram_user_id: instagramUserId,
-      onboarding_state: 'awaiting_email',
-    })
-    .select()
+    .select('id, instagram_user_id, onboarding_state')
+    .eq('instagram_user_id', instagramUserId)
+    .single()
 
-  if (error) {
-    console.error('❌ Failed to create user profile for Instagram ID:', instagramUserId, {
-      error: error.message,
-      code: error.code,
-      details: error.details,
-      hint: error.hint,
+  if (existingUser) {
+    console.log(`✅ User profile already exists with ID: ${existingUser.id}`)
+    newUserId = existingUser.id
+    
+    // Update onboarding state if needed
+    if (existingUser.onboarding_state !== 'awaiting_email') {
+      await supabaseAdmin
+        .from('users')
+        .update({ onboarding_state: 'awaiting_email' })
+        .eq('id', newUserId)
+    }
+  } else {
+    // Create auth user first (required for foreign key constraint)
+    const password = crypto.randomUUID() // Random password, user won't use it
+    
+    console.log(`Creating auth user with email: ${email}`)
+    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true, // Auto-confirm since they're signing up via Instagram
     })
-    // Try to clean up the auth user if profile creation failed
-    await supabaseAdmin.auth.admin.deleteUser(newUserId)
-    console.log('=== handleNewUser END (profile error) ===')
-    return
+
+    if (authError || !authUser?.user) {
+      // If auth user already exists, try to find it
+      if (authError?.message?.includes('already registered')) {
+        console.log('Auth user already exists, looking up by email...')
+        const { data: existingAuthUsers } = await supabaseAdmin.auth.admin.listUsers()
+        const existingAuth = existingAuthUsers?.users?.find(u => u.email === email)
+        if (existingAuth) {
+          newUserId = existingAuth.id
+          console.log(`✅ Found existing auth user with ID: ${newUserId}`)
+        } else {
+          console.error('❌ Failed to create/find auth user for Instagram ID:', instagramUserId, {
+            error: authError?.message,
+            code: authError?.status,
+          })
+          console.log('=== handleNewUser END (auth error) ===')
+          return
+        }
+      } else {
+        console.error('❌ Failed to create auth user for Instagram ID:', instagramUserId, {
+          error: authError?.message,
+          code: authError?.status,
+        })
+        console.log('=== handleNewUser END (auth error) ===')
+        return
+      }
+    } else {
+      newUserId = authUser.user.id
+      console.log(`✅ Auth user created with ID: ${newUserId}`)
+    }
+    
+    // Check if profile already exists with this ID (from previous partial creation)
+    const { data: existingProfileById } = await supabaseAdmin
+      .from('users')
+      .select('id, instagram_user_id')
+      .eq('id', newUserId)
+      .single()
+
+    if (existingProfileById) {
+      console.log(`✅ User profile already exists with this ID, updating...`)
+      const { error: updateError } = await supabaseAdmin
+        .from('users')
+        .update({
+          instagram_user_id: instagramUserId,
+          onboarding_state: 'awaiting_email',
+        })
+        .eq('id', newUserId)
+
+      if (updateError) {
+        console.error('❌ Failed to update existing user profile:', updateError)
+        console.log('=== handleNewUser END (update error) ===')
+        return
+      }
+      console.log(`✅ User profile updated successfully`)
+    } else {
+      // Create the user profile
+      const { error, data } = await supabaseAdmin
+        .from('users')
+        .insert({
+          id: newUserId,
+          email: email,
+          instagram_user_id: instagramUserId,
+          onboarding_state: 'awaiting_email',
+        })
+        .select()
+
+      if (error) {
+        console.error('❌ Failed to create user profile for Instagram ID:', instagramUserId, {
+          error: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        })
+        console.log('=== handleNewUser END (profile error) ===')
+        return
+      }
+
+      console.log(`✅ User profile created successfully:`, {
+        userId: newUserId,
+        instagramUserId,
+        email: data?.[0]?.email,
+      })
+    }
+
+    console.log(`✅ User profile created/updated successfully:`, {
+      userId: newUserId,
+      instagramUserId,
+      email: data?.[0]?.email,
+    })
   }
-
-  console.log(`✅ User profile created successfully:`, {
-    userId: newUserId,
-    instagramUserId,
-    email: data?.[0]?.email,
-  })
 
   console.log(`📤 Sending welcome message to ${instagramUserId}...`)
   const messageSent = await sendInstagramMessage(
