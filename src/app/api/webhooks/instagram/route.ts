@@ -95,8 +95,15 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleMessage(event: any) {
-  const senderId = event.sender.id
-  const message = event.message
+  console.log('handleMessage event:', JSON.stringify(event).slice(0, 500))
+
+  const senderId = event?.sender?.id
+  const message = event?.message
+
+  if (!senderId) {
+    console.error('No sender.id in event:', JSON.stringify(event).slice(0, 300))
+    return
+  }
 
   if (!message) return
 
