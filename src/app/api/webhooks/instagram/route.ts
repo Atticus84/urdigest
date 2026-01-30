@@ -51,7 +51,11 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get('x-hub-signature')
     const body = await request.text()
 
-    console.log('Instagram webhook POST received, signature:', signature ? 'present' : 'missing')
+    console.log('Instagram webhook POST received', {
+      signature: signature ? 'present' : 'missing',
+      bodyLength: body.length,
+      headers: Object.fromEntries(request.headers.entries()),
+    })
 
     if (signature && !verifySignature(signature, body)) {
       console.error('Instagram webhook signature mismatch')
@@ -59,16 +63,32 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = JSON.parse(body)
-    console.log('Instagram webhook payload:', JSON.stringify(payload).slice(0, 1000))
+    console.log('Instagram webhook payload:', JSON.stringify(payload, null, 2))
 
-    if (payload.object === 'instagram') {
-      for (const entry of payload.entry) {
-        // Handle messaging array format
+    // Handle both 'instagram' and 'page' object types
+    if (payload.object === 'instagram' || payload.object === 'page') {
+      const eventTypes: string[] = []
+      
+      for (const entry of payload.entry || []) {
+        // Handle messaging array format (standard webhook structure)
         if (entry.messaging) {
           for (const messagingEvent of entry.messaging) {
+            // Log all event types we receive
+            const eventType = Object.keys(messagingEvent).find(key => 
+              key !== 'timestamp' && key !== 'sender' && key !== 'recipient'
+            ) || 'unknown'
+            eventTypes.push(eventType)
+            
+            console.log(`Processing messaging event (type: ${eventType}):`, JSON.stringify(messagingEvent, null, 2))
+            
             // Skip non-message events (message_edit, message_reactions, etc.)
             if (!messagingEvent.sender || !messagingEvent.message) {
-              console.log('Skipping non-message event:', JSON.stringify(messagingEvent).slice(0, 200))
+              console.log(`Skipping non-message event (type: ${eventType}):`, {
+                hasSender: !!messagingEvent.sender,
+                hasMessage: !!messagingEvent.message,
+                eventKeys: Object.keys(messagingEvent),
+                timestamp: messagingEvent.timestamp,
+              })
               continue
             }
             await handleMessage(messagingEvent)
@@ -77,21 +97,38 @@ export async function POST(request: NextRequest) {
         // Handle changes array format (alternative webhook structure)
         if (entry.changes) {
           for (const change of entry.changes) {
-            console.log('Webhook change:', JSON.stringify(change).slice(0, 500))
+            console.log('Processing webhook change:', JSON.stringify(change, null, 2))
             if (change.field === 'messages' && change.value) {
               const v = change.value
               if (v.sender && v.message) {
                 await handleMessage({ sender: v.sender, message: v.message })
+              } else {
+                console.log('Change value missing sender or message:', JSON.stringify(v, null, 2))
               }
             }
           }
         }
       }
+      
+      // Log summary of event types received
+      if (eventTypes.length > 0) {
+        const eventTypeCounts = eventTypes.reduce((acc, type) => {
+          acc[type] = (acc[type] || 0) + 1
+          return acc
+        }, {} as Record<string, number>)
+        console.log('Event types received in this webhook call:', eventTypeCounts)
+        console.log('⚠️  If you only see "message_edit" events and no "message" events, your webhook may not be subscribed to "messages" events in Meta App Dashboard')
+      }
+    } else {
+      console.warn('Unknown webhook object type:', payload.object)
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Instagram webhook error:', error)
+    console.error('Instagram webhook error:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    })
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -100,30 +137,51 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleMessage(event: any) {
-  console.log('handleMessage event:', JSON.stringify(event).slice(0, 500))
+  console.log('=== handleMessage START ===')
+  console.log('handleMessage called with event:', JSON.stringify(event, null, 2))
 
   const senderId = event?.sender?.id
   const message = event?.message
 
   if (!senderId) {
-    console.error('No sender.id in event:', JSON.stringify(event).slice(0, 300))
+    console.error('❌ No sender.id in event:', JSON.stringify(event, null, 2))
+    console.log('=== handleMessage END (no sender) ===')
     return
   }
 
-  if (!message) return
+  if (!message) {
+    console.log('❌ No message in event, skipping')
+    console.log('=== handleMessage END (no message) ===')
+    return
+  }
+
+  console.log(`✅ Processing message from sender ${senderId}:`, {
+    text: message.text,
+    attachments: message.attachments?.length || 0,
+    messageId: message.mid,
+  })
 
   // Look up user by instagram_user_id
-  const { data: user } = await supabaseAdmin
+  console.log(`🔍 Looking up user with instagram_user_id: ${senderId}`)
+  const { data: user, error: lookupError } = await supabaseAdmin
     .from('users')
     .select('*')
     .eq('instagram_user_id', senderId)
     .single()
 
+  if (lookupError && lookupError.code !== 'PGRST116') {
+    console.error('❌ Error looking up user:', lookupError)
+  }
+
   if (!user) {
+    console.log(`👤 User not found, creating new user for Instagram ID: ${senderId}`)
     // New user — create profile and start onboarding
     await handleNewUser(senderId)
+    console.log('=== handleMessage END (new user created) ===')
     return
   }
+
+  console.log(`👤 Found existing user: ${user.id}, onboarding_state: ${user.onboarding_state}`)
 
   // Route based on onboarding state
   switch (user.onboarding_state) {
@@ -138,50 +196,83 @@ async function handleMessage(event: any) {
       break
     default:
       // User exists but no onboarding state — treat as needing onboarding
+      console.log(`User ${user.id} has no onboarding state, resetting to awaiting_email`)
       await supabaseAdmin
         .from('users')
         .update({ onboarding_state: 'awaiting_email' })
         .eq('id', user.id)
-      await sendInstagramMessage(
+      const sent = await sendInstagramMessage(
         senderId,
         "Welcome back to urdigest! What's your email address so we can send you your daily digest?"
       )
+      if (!sent) console.error(`Failed to send welcome back message to ${senderId}`)
       break
   }
 }
 
 async function handleNewUser(instagramUserId: string) {
+  console.log(`=== handleNewUser START for Instagram ID: ${instagramUserId} ===`)
+  
   // Create a new user record with just the instagram_user_id
-  const { error } = await supabaseAdmin
+  const newUserId = crypto.randomUUID()
+  console.log(`Creating user with ID: ${newUserId}`)
+  
+  const { error, data } = await supabaseAdmin
     .from('users')
     .insert({
-      id: crypto.randomUUID(),
+      id: newUserId,
       email: `pending_${instagramUserId}@placeholder.urdigest`,
       instagram_user_id: instagramUserId,
       onboarding_state: 'awaiting_email',
     })
+    .select()
 
   if (error) {
-    console.error('Failed to create user for Instagram ID:', instagramUserId, error)
+    console.error('❌ Failed to create user for Instagram ID:', instagramUserId, {
+      error: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    })
+    console.log('=== handleNewUser END (error) ===')
     return
   }
 
-  await sendInstagramMessage(
+  console.log(`✅ User created successfully:`, {
+    userId: newUserId,
+    instagramUserId,
+    email: data?.[0]?.email,
+  })
+
+  console.log(`📤 Sending welcome message to ${instagramUserId}...`)
+  const messageSent = await sendInstagramMessage(
     instagramUserId,
     "👋 Welcome to urdigest! I'll turn your saved Instagram posts into a daily email digest.\n\nFirst, what's your email address?"
   )
+  
+  if (!messageSent) {
+    console.error(`❌ Failed to send welcome message to ${instagramUserId}`)
+  } else {
+    console.log(`✅ Welcome message sent successfully to ${instagramUserId}`)
+  }
+  
+  console.log('=== handleNewUser END ===')
 }
 
 async function handleEmailResponse(userId: string, instagramUserId: string, text: string) {
+  console.log(`Handling email response from user ${userId} (Instagram: ${instagramUserId}): ${text}`)
+  
   const email = text.trim().toLowerCase()
 
   // Basic email validation
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailRegex.test(email)) {
-    await sendInstagramMessage(
+    console.log(`Invalid email format: ${email}`)
+    const sent = await sendInstagramMessage(
       instagramUserId,
       "That doesn't look like a valid email address. Please send your email address (e.g., you@example.com)"
     )
+    if (!sent) console.error(`Failed to send invalid email message to ${instagramUserId}`)
     return
   }
 
@@ -192,14 +283,17 @@ async function handleEmailResponse(userId: string, instagramUserId: string, text
 
   if (error) {
     console.error('Failed to update email:', error)
-    await sendInstagramMessage(instagramUserId, "Something went wrong. Please try sending your email again.")
+    const sent = await sendInstagramMessage(instagramUserId, "Something went wrong. Please try sending your email again.")
+    if (!sent) console.error(`Failed to send error message to ${instagramUserId}`)
     return
   }
 
-  await sendInstagramMessage(
+  console.log(`Email updated successfully, asking for time preference`)
+  const sent = await sendInstagramMessage(
     instagramUserId,
     "Got it! What time would you like your daily digest sent? (e.g., 8:00 AM, 7 PM, 18:00)"
   )
+  if (!sent) console.error(`Failed to send time request message to ${instagramUserId}`)
 }
 
 function parseTime(text: string): string | null {
@@ -233,16 +327,21 @@ function parseTime(text: string): string | null {
 }
 
 async function handleTimeResponse(userId: string, instagramUserId: string, text: string) {
+  console.log(`Handling time response from user ${userId} (Instagram: ${instagramUserId}): ${text}`)
+  
   const digestTime = parseTime(text)
 
   if (!digestTime) {
-    await sendInstagramMessage(
+    console.log(`Could not parse time: ${text}`)
+    const sent = await sendInstagramMessage(
       instagramUserId,
       "I couldn't understand that time. Please try again (e.g., 8:00 AM, 7 PM, 18:00)"
     )
+    if (!sent) console.error(`Failed to send invalid time message to ${instagramUserId}`)
     return
   }
 
+  console.log(`Parsed time: ${digestTime}`)
   const { error } = await supabaseAdmin
     .from('users')
     .update({
@@ -254,21 +353,31 @@ async function handleTimeResponse(userId: string, instagramUserId: string, text:
 
   if (error) {
     console.error('Failed to update digest time:', error)
-    await sendInstagramMessage(instagramUserId, "Something went wrong. Please try sending the time again.")
+    const sent = await sendInstagramMessage(instagramUserId, "Something went wrong. Please try sending the time again.")
+    if (!sent) console.error(`Failed to send error message to ${instagramUserId}`)
     return
   }
 
-  await sendInstagramMessage(
+  console.log(`User ${userId} onboarded successfully`)
+  const sent = await sendInstagramMessage(
     instagramUserId,
     "You're all set! 🎉 Now just send me any Instagram posts and I'll include them in your daily digest.\n\nTo share a post, open it in Instagram and use the share button to send it to me here."
   )
+  if (!sent) console.error(`Failed to send onboarding complete message to ${instagramUserId}`)
 }
 
 async function handleOnboardedMessage(userId: string, instagramUserId: string, message: any) {
+  console.log(`Handling onboarded message from user ${userId}:`, {
+    hasText: !!message.text,
+    hasAttachments: !!message.attachments,
+    attachmentCount: message.attachments?.length || 0,
+  })
+
   // Check for shared media (Instagram post shared via DM)
   if (message.attachments) {
     let savedCount = 0
     for (const attachment of message.attachments) {
+      console.log(`Processing attachment:`, { type: attachment.type })
       if (attachment.type === 'media_share' || attachment.type === 'share') {
         const saved = await saveInstagramPost(userId, attachment.payload)
         if (saved) savedCount++
@@ -276,12 +385,14 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
     }
 
     if (savedCount > 0) {
-      await sendInstagramMessage(
+      console.log(`Saved ${savedCount} post(s) for user ${userId}`)
+      const sent = await sendInstagramMessage(
         instagramUserId,
         savedCount === 1
           ? "✅ Added to your next digest!"
           : `✅ Added ${savedCount} posts to your next digest!`
       )
+      if (!sent) console.error(`Failed to send confirmation message to ${instagramUserId}`)
       return
     }
   }
@@ -289,12 +400,14 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
   // If it's a text message (not a shared post), provide help
   if (message.text) {
     const text = message.text.trim().toLowerCase()
+    console.log(`Processing text command: "${text}"`)
 
     if (text === 'help') {
-      await sendInstagramMessage(
+      const sent = await sendInstagramMessage(
         instagramUserId,
         "📬 urdigest Help:\n• Share Instagram posts with me to add them to your digest\n• Send \"status\" to check your digest info\n• Send \"pause\" to pause digests\n• Send \"resume\" to resume digests"
       )
+      if (!sent) console.error(`Failed to send help message to ${instagramUserId}`)
       return
     }
 
@@ -306,31 +419,36 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
         .single()
 
       if (user) {
-        await sendInstagramMessage(
+        const sent = await sendInstagramMessage(
           instagramUserId,
           `📊 Your urdigest status:\n• Email: ${user.email}\n• Digest time: ${user.digest_time}\n• Digests enabled: ${user.digest_enabled ? 'Yes' : 'No'}\n• Posts saved: ${user.total_posts_saved}\n• Digests sent: ${user.total_digests_sent}`
         )
+        if (!sent) console.error(`Failed to send status message to ${instagramUserId}`)
       }
       return
     }
 
     if (text === 'pause') {
       await supabaseAdmin.from('users').update({ digest_enabled: false }).eq('id', userId)
-      await sendInstagramMessage(instagramUserId, "⏸️ Digests paused. Send \"resume\" to start them again.")
+      const sent = await sendInstagramMessage(instagramUserId, "⏸️ Digests paused. Send \"resume\" to start them again.")
+      if (!sent) console.error(`Failed to send pause confirmation to ${instagramUserId}`)
       return
     }
 
     if (text === 'resume') {
       await supabaseAdmin.from('users').update({ digest_enabled: true }).eq('id', userId)
-      await sendInstagramMessage(instagramUserId, "▶️ Digests resumed! You'll get your next digest at your scheduled time.")
+      const sent = await sendInstagramMessage(instagramUserId, "▶️ Digests resumed! You'll get your next digest at your scheduled time.")
+      if (!sent) console.error(`Failed to send resume confirmation to ${instagramUserId}`)
       return
     }
 
     // Default: they sent a text message that isn't a command
-    await sendInstagramMessage(
+    console.log(`Unknown text command: "${text}", sending help message`)
+    const sent = await sendInstagramMessage(
       instagramUserId,
       "To add a post to your digest, share it with me using Instagram's share button. Send \"help\" for more options."
     )
+    if (!sent) console.error(`Failed to send default help message to ${instagramUserId}`)
   }
 }
 
