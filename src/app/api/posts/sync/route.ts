@@ -18,6 +18,8 @@ const SyncRequestSchema = z.object({
   posts: z.array(PostSchema),
 })
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = createClient()
