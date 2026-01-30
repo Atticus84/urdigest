@@ -327,12 +327,6 @@ async function handleNewUser(instagramUserId: string) {
         email: data?.[0]?.email,
       })
     }
-
-    console.log(`✅ User profile created/updated successfully:`, {
-      userId: newUserId,
-      instagramUserId,
-      email: data?.[0]?.email,
-    })
   }
 
   console.log(`📤 Sending welcome message to ${instagramUserId}...`)
