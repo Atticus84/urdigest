@@ -27,6 +27,7 @@ export async function sendInstagramMessage(recipientId: string, text: string): P
   }
 
   console.log(`Attempting to send Instagram message to ${recipientId} via ${url}`)
+  console.log(`Token info: present=${!!accessToken}, length=${accessToken?.length}, startsWith=${accessToken?.substring(0, 4)}`)
 
   try {
     const response = await fetch(
