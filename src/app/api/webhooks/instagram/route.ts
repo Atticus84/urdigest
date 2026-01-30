@@ -213,32 +213,54 @@ async function handleMessage(event: any) {
 async function handleNewUser(instagramUserId: string) {
   console.log(`=== handleNewUser START for Instagram ID: ${instagramUserId} ===`)
   
-  // Create a new user record with just the instagram_user_id
-  const newUserId = crypto.randomUUID()
-  console.log(`Creating user with ID: ${newUserId}`)
+  // Create auth user first (required for foreign key constraint)
+  const email = `pending_${instagramUserId}@placeholder.urdigest`
+  const password = crypto.randomUUID() // Random password, user won't use it
   
+  console.log(`Creating auth user with email: ${email}`)
+  const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true, // Auto-confirm since they're signing up via Instagram
+  })
+
+  if (authError || !authUser?.user) {
+    console.error('❌ Failed to create auth user for Instagram ID:', instagramUserId, {
+      error: authError?.message,
+      code: authError?.status,
+    })
+    console.log('=== handleNewUser END (auth error) ===')
+    return
+  }
+
+  const newUserId = authUser.user.id
+  console.log(`✅ Auth user created with ID: ${newUserId}`)
+  
+  // Now create the user profile
   const { error, data } = await supabaseAdmin
     .from('users')
     .insert({
       id: newUserId,
-      email: `pending_${instagramUserId}@placeholder.urdigest`,
+      email: email,
       instagram_user_id: instagramUserId,
       onboarding_state: 'awaiting_email',
     })
     .select()
 
   if (error) {
-    console.error('❌ Failed to create user for Instagram ID:', instagramUserId, {
+    console.error('❌ Failed to create user profile for Instagram ID:', instagramUserId, {
       error: error.message,
       code: error.code,
       details: error.details,
       hint: error.hint,
     })
-    console.log('=== handleNewUser END (error) ===')
+    // Try to clean up the auth user if profile creation failed
+    await supabaseAdmin.auth.admin.deleteUser(newUserId)
+    console.log('=== handleNewUser END (profile error) ===')
     return
   }
 
-  console.log(`✅ User created successfully:`, {
+  console.log(`✅ User profile created successfully:`, {
     userId: newUserId,
     instagramUserId,
     email: data?.[0]?.email,
