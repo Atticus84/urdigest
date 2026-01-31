@@ -27,7 +27,13 @@ export async function sendInstagramMessage(recipientId: string, text: string): P
   }
 
   console.log(`Attempting to send Instagram message to ${recipientId} via ${url}`)
-  console.log(`Token info: present=${!!accessToken}, length=${accessToken?.length}, startsWith=${accessToken?.substring(0, 4)}`)
+  const tokenPrefix = accessToken?.substring(0, 4)
+  console.log(`Token info: present=${!!accessToken}, length=${accessToken?.length}, startsWith=${tokenPrefix}`)
+  
+  // Warn if using Instagram token instead of Page token
+  if (tokenPrefix === 'IGAA') {
+    console.warn('⚠️  Token starts with IGAA (Instagram Access Token). Instagram Messaging API typically requires a Page Access Token (starts with EAA).')
+  }
 
   try {
     const response = await fetch(
@@ -65,6 +71,13 @@ export async function sendInstagramMessage(recipientId: string, text: string): P
       }
       if (responseData.error?.code === 190) {
         console.error('⚠️  Error 190: Invalid access token. Token may be expired or invalid.')
+        console.error('   If your token starts with IGAA, you may need a Page Access Token (starts with EAA) instead.')
+      }
+      if (responseData.error?.code === 100 && responseData.error?.error_subcode === 33) {
+        console.error('⚠️  Error 100-33: Page ID not accessible. This usually means:')
+        console.error('   1. The token is not a Page Access Token (should start with EAA, not IGAA)')
+        console.error('   2. The Page ID is incorrect')
+        console.error('   3. The token does not have access to the specified Page')
       }
       
       return false
