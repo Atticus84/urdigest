@@ -10,6 +10,6 @@ export const inngest = new Proxy({} as Inngest, {
         eventKey: process.env.INNGEST_EVENT_KEY,
       })
     }
-    return (_inngest as any)[prop]
+    return _inngest[prop as keyof Inngest]
   },
 })

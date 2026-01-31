@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { summarizePosts, generateFallbackSummaries } from '@/lib/ai/summarize'
 import { sendDigestEmail, sendTrialEndedEmail } from '@/lib/email/send'
 import { format } from 'date-fns'
+import type { User, Database } from '@/types/database'
 
 export const dailyDigest = inngest.createFunction(
   { id: 'daily-digest', name: 'Generate and send daily digests' },
@@ -45,7 +46,7 @@ export const dailyDigest = inngest.createFunction(
   }
 )
 
-async function generateDigestForUser(user: any) {
+async function generateDigestForUser(user: User) {
   // Get unprocessed posts from the last 24 hours
   const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
@@ -126,7 +127,7 @@ async function generateDigestForUser(user: any) {
     .in('id', posts.map(p => p.id))
 
   // Update user stats
-  const updates: any = {
+  const updates: Database['public']['Tables']['users']['Update'] = {
     total_digests_sent: user.total_digests_sent + 1,
   }
 

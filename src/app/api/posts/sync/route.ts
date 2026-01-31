@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+import type { Json } from '@/types/database'
 
 const PostSchema = z.object({
   instagram_post_id: z.string(),
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
           caption: post.caption || null,
           author_username: post.author_username || null,
           author_profile_url: post.author_profile_url || null,
-          media_urls: (post.media_urls || null) as any,
+          media_urls: (post.media_urls || null) as Json | null,
           thumbnail_url: post.thumbnail_url || null,
           posted_at: post.posted_at || null,
         })

@@ -20,6 +20,6 @@ export const supabaseAdmin: SupabaseClient<Database> = new Proxy({} as SupabaseC
         },
       })
     }
-    return (_supabaseAdmin as any)[prop]
+    return _supabaseAdmin[prop as keyof SupabaseClient<Database>]
   },
 })

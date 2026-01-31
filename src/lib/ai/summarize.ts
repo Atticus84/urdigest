@@ -75,9 +75,9 @@ IMPORTANT: Return ONLY the JSON array, no other text.
     const cost = (inputTokens * 0.00015 / 1000) + (outputTokens * 0.0006 / 1000)
 
     // Parse response
-    let parsedResponse: any
+    let parsedResponse: { summaries?: PostSummary[] } | PostSummary[]
     try {
-      parsedResponse = JSON.parse(response || '{}')
+      parsedResponse = JSON.parse(response || '{}') as { summaries?: PostSummary[] } | PostSummary[]
     } catch {
       throw new Error('Failed to parse OpenAI response as JSON')
     }
