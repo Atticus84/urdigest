@@ -36,7 +36,11 @@ export async function GET(request: NextRequest) {
   const token = searchParams.get('hub.verify_token')
   const challenge = searchParams.get('hub.challenge')
 
-  const VERIFY_TOKEN = process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN || 'urdigest_verify_token'
+  const VERIFY_TOKEN = process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN
+  if (!VERIFY_TOKEN) {
+    console.error('INSTAGRAM_WEBHOOK_VERIFY_TOKEN environment variable is not set')
+    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
+  }
 
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     console.log('Instagram webhook verified')
