@@ -2,8 +2,19 @@
  * Send a DM to an Instagram user via the Instagram Messaging API.
  * Requires INSTAGRAM_ACCESS_TOKEN env var (a long-lived page access token).
  * Also requires INSTAGRAM_PAGE_ID env var (the Facebook Page ID connected to Instagram).
+ * 
+ * Set INSTAGRAM_DISABLE_MESSAGES=true to disable sending messages (useful for debugging).
  */
 export async function sendInstagramMessage(recipientId: string, text: string): Promise<boolean> {
+  // Check if messaging is disabled (useful for debugging API usage)
+  if (process.env.INSTAGRAM_DISABLE_MESSAGES === 'true') {
+    console.log('🚫 Instagram messaging disabled (INSTAGRAM_DISABLE_MESSAGES=true). Would send to:', {
+      recipientId,
+      textPreview: text.substring(0, 50) + (text.length > 50 ? '...' : ''),
+    })
+    return true // Return true to prevent retries, but don't actually send
+  }
+
   const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN
   const pageId = process.env.INSTAGRAM_PAGE_ID || 'me' // Fallback to 'me' if not set
   
@@ -83,9 +94,11 @@ export async function sendInstagramMessage(recipientId: string, text: string): P
       return false
     }
 
-    console.log('Instagram message sent successfully:', {
+    console.log('✅ Instagram API call successful:', {
       recipientId,
       messageId: responseData.message_id,
+      timestamp: new Date().toISOString(),
+      textPreview: text.substring(0, 50) + (text.length > 50 ? '...' : ''),
     })
     return true
   } catch (error) {

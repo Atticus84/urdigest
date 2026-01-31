@@ -45,16 +45,20 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Track processed message IDs to prevent duplicate processing
+const processedMessageIds = new Set<string>()
+const MAX_PROCESSED_IDS = 1000 // Keep last 1000 message IDs in memory
+
 // Instagram webhook events (POST request)
 export async function POST(request: NextRequest) {
   try {
     const signature = request.headers.get('x-hub-signature')
     const body = await request.text()
 
-    console.log('Instagram webhook POST received', {
+    console.log('📥 Instagram webhook POST received', {
       signature: signature ? 'present' : 'missing',
       bodyLength: body.length,
-      headers: Object.fromEntries(request.headers.entries()),
+      timestamp: new Date().toISOString(),
     })
 
     if (signature && !verifySignature(signature, body)) {
@@ -116,8 +120,16 @@ export async function POST(request: NextRequest) {
           acc[type] = (acc[type] || 0) + 1
           return acc
         }, {} as Record<string, number>)
-        console.log('Event types received in this webhook call:', eventTypeCounts)
+        console.log('📊 Event types received in this webhook call:', eventTypeCounts)
         console.log('⚠️  If you only see "message_edit" events and no "message" events, your webhook may not be subscribed to "messages" events in Meta App Dashboard')
+        
+        // Log if we're receiving many non-message events (which shouldn't trigger API calls)
+        const nonMessageEvents = Object.entries(eventTypeCounts)
+          .filter(([type]) => type !== 'message')
+          .reduce((sum, [, count]) => sum + count, 0)
+        if (nonMessageEvents > 0) {
+          console.log(`ℹ️  Received ${nonMessageEvents} non-message event(s) that were skipped (won't consume API quota)`)
+        }
       }
     } else {
       console.warn('Unknown webhook object type:', payload.object)
@@ -138,13 +150,13 @@ export async function POST(request: NextRequest) {
 
 async function handleMessage(event: any) {
   console.log('=== handleMessage START ===')
-  console.log('handleMessage called with event:', JSON.stringify(event, null, 2))
-
+  
   const senderId = event?.sender?.id
   const message = event?.message
+  const messageId = message?.mid
 
   if (!senderId) {
-    console.error('❌ No sender.id in event:', JSON.stringify(event, null, 2))
+    console.error('❌ No sender.id in event')
     console.log('=== handleMessage END (no sender) ===')
     return
   }
@@ -155,10 +167,28 @@ async function handleMessage(event: any) {
     return
   }
 
+  // Deduplication: Skip if we've already processed this message
+  if (messageId && processedMessageIds.has(messageId)) {
+    console.log(`⏭️  Skipping duplicate message: ${messageId} from sender ${senderId}`)
+    console.log('=== handleMessage END (duplicate) ===')
+    return
+  }
+
+  // Track this message ID
+  if (messageId) {
+    processedMessageIds.add(messageId)
+    // Clean up old IDs to prevent memory leak
+    if (processedMessageIds.size > MAX_PROCESSED_IDS) {
+      const firstId = processedMessageIds.values().next().value
+      processedMessageIds.delete(firstId)
+    }
+  }
+
   console.log(`✅ Processing message from sender ${senderId}:`, {
     text: message.text,
     attachments: message.attachments?.length || 0,
-    messageId: message.mid,
+    messageId: messageId,
+    timestamp: new Date().toISOString(),
   })
 
   // Look up user by instagram_user_id
