@@ -180,7 +180,9 @@ async function handleMessage(event: any) {
     // Clean up old IDs to prevent memory leak
     if (processedMessageIds.size > MAX_PROCESSED_IDS) {
       const firstId = processedMessageIds.values().next().value
-      processedMessageIds.delete(firstId)
+      if (firstId) {
+        processedMessageIds.delete(firstId)
+      }
     }
   }
 
