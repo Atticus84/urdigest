@@ -86,16 +86,14 @@ export const dailyDigest = inngest.createFunction(
 )
 
 async function generateDigestForUser(user: any) {
-  // Get unprocessed posts from the last 24 hours
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-
+  // Get all unprocessed posts for this user
   const { data: posts, error } = await supabaseAdmin
     .from('saved_posts')
     .select('*')
     .eq('user_id', user.id)
     .eq('processed', false)
-    .gte('saved_at', yesterday)
     .order('saved_at', { ascending: false })
+    .limit(30)
 
   if (error) {
     throw new Error(`Failed to fetch posts: ${error.message}`)
