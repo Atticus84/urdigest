@@ -57,7 +57,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to update settings' },
       { status: 500 }
     )
   }

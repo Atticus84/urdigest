@@ -36,6 +36,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, message: 'Email updated in auth system' })
   } catch (error) {
     console.error('Error fixing email:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fix email' }, { status: 500 })
   }
 }

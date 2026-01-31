@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to sync posts' },
       { status: 500 }
     )
   }

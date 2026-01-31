@@ -34,6 +34,6 @@ export async function GET() {
     return NextResponse.json({ posts: posts || [] })
   } catch (error) {
     console.error('Unexpected error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch pending digest posts' }, { status: 500 })
   }
 }

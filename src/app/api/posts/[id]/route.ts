@@ -34,7 +34,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Delete post error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to delete post' },
       { status: 500 }
     )
   }

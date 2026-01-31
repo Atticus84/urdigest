@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Get posts error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to fetch posts' },
       { status: 500 }
     )
   }

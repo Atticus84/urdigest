@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
       stack: error instanceof Error ? error.stack : undefined,
     })
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to process Instagram webhook event' },
       { status: 500 }
     )
   }
