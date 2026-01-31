@@ -8,7 +8,9 @@ import type { SavedPost, User } from '@/types/database'
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [posts, setPosts] = useState<SavedPost[]>([])
+  const [pendingPosts, setPendingPosts] = useState<SavedPost[]>([])
   const [loading, setLoading] = useState(true)
+  const [sendingDigest, setSendingDigest] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -36,7 +38,52 @@ export default function DashboardPage() {
       .limit(50)
 
     setPosts(postsData || [])
+    
+    // Load pending posts for digest
+    await loadPendingDigest()
+    
     setLoading(false)
+  }
+
+  const loadPendingDigest = async () => {
+    try {
+      const response = await fetch('/api/digests/pending')
+      if (response.ok) {
+        const data = await response.json()
+        setPendingPosts(data.posts || [])
+      }
+    } catch (error) {
+      console.error('Failed to load pending digest:', error)
+    }
+  }
+
+  const sendDigestManually = async () => {
+    if (pendingPosts.length === 0) {
+      alert('No pending posts to send in digest')
+      return
+    }
+
+    setSendingDigest(true)
+    try {
+      const response = await fetch('/api/digests/send', {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to send digest')
+      }
+
+      const data = await response.json()
+      alert('Digest sent successfully! Check your email.')
+      
+      // Reload data to reflect changes
+      await loadData()
+    } catch (error: any) {
+      alert(error.message || 'Failed to send digest')
+    } finally {
+      setSendingDigest(false)
+    }
   }
 
   const deletePost = async (id: string) => {
@@ -133,6 +180,70 @@ export default function DashboardPage() {
                 user.subscription_status
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pending Digest Section */}
+      {pendingPosts.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 mb-1">
+                📧 Pending Digest
+              </h2>
+              <p className="text-sm text-gray-600">
+                {pendingPosts.length} {pendingPosts.length === 1 ? 'post' : 'posts'} ready to send
+              </p>
+            </div>
+            <button
+              onClick={sendDigestManually}
+              disabled={sendingDigest}
+              className="bg-instagram-pink text-white px-6 py-2 rounded-lg font-semibold hover:bg-instagram-pink/90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {sendingDigest ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <span>📤</span>
+                  Send Digest Now
+                </>
+              )}
+            </button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {pendingPosts.slice(0, 4).map((post) => (
+              <div key={post.id} className="relative">
+                {post.thumbnail_url ? (
+                  <img
+                    src={post.thumbnail_url}
+                    alt={post.caption || 'Post'}
+                    className="w-full h-32 object-cover rounded-lg"
+                  />
+                ) : (
+                  <div className="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <span className="text-gray-400 text-2xl">📷</span>
+                  </div>
+                )}
+                {post.author_username && (
+                  <div className="absolute bottom-2 left-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded truncate">
+                    @{post.author_username}
+                  </div>
+                )}
+              </div>
+            ))}
+            {pendingPosts.length > 4 && (
+              <div className="relative">
+                <div className="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <span className="text-gray-600 font-semibold">
+                    +{pendingPosts.length - 4} more
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
