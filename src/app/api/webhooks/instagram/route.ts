@@ -6,6 +6,63 @@ import { getInstagramUsername } from '@/lib/instagram/get-username'
 
 export const dynamic = 'force-dynamic'
 
+// Instagram webhook payload types
+interface InstagramSender {
+  id: string
+  username?: string
+}
+
+interface InstagramMessageAttachment {
+  type: string
+  payload: InstagramSharePayload
+}
+
+interface InstagramMessage {
+  mid?: string
+  text?: string
+  attachments?: InstagramMessageAttachment[]
+}
+
+interface InstagramMessagingEvent {
+  timestamp?: number
+  sender?: InstagramSender
+  recipient?: { id: string }
+  message?: InstagramMessage
+  [key: string]: unknown
+}
+
+interface InstagramSharePayload {
+  url?: string
+}
+
+interface InstagramWebhookChange {
+  field: string
+  value?: {
+    sender?: InstagramSender
+    message?: InstagramMessage
+  }
+}
+
+interface InstagramWebhookEntry {
+  id?: string
+  time?: number
+  messaging?: InstagramMessagingEvent[]
+  changes?: InstagramWebhookChange[]
+}
+
+interface InstagramWebhookPayload {
+  object: string
+  entry?: InstagramWebhookEntry[]
+}
+
+interface UserInsertData {
+  id: string
+  email: string
+  instagram_user_id: string
+  onboarding_state: string
+  instagram_username?: string
+}
+
 // Verify webhook signature (Meta requirement)
 function verifySignature(signature: string, body: string): boolean {
   const appSecret = process.env.INSTAGRAM_APP_SECRET
@@ -67,7 +124,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
     }
 
-    const payload = JSON.parse(body)
+    const payload: InstagramWebhookPayload = JSON.parse(body)
     console.log('Instagram webhook payload:', JSON.stringify(payload, null, 2))
 
     // Handle both 'instagram' and 'page' object types
@@ -149,7 +206,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleMessage(event: any) {
+async function handleMessage(event: InstagramMessagingEvent) {
   console.log('=== handleMessage START ===')
   
   const senderId = event?.sender?.id
@@ -371,7 +428,7 @@ async function handleNewUser(instagramUserId: string, instagramUsername?: string
       console.log(`✅ User profile updated successfully`)
     } else {
       // Create the user profile
-      const insertData: any = {
+      const insertData: UserInsertData = {
         id: newUserId,
         email: email,
         instagram_user_id: instagramUserId,
@@ -541,7 +598,7 @@ async function handleTimeResponse(userId: string, instagramUserId: string, text:
   if (!sent) console.error(`Failed to send onboarding complete message to ${instagramUserId}`)
 }
 
-async function handleOnboardedMessage(userId: string, instagramUserId: string, message: any) {
+async function handleOnboardedMessage(userId: string, instagramUserId: string, message: InstagramMessage) {
   console.log(`Handling onboarded message from user ${userId}:`, {
     hasText: !!message.text,
     hasAttachments: !!message.attachments,
@@ -627,7 +684,7 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
   }
 }
 
-async function saveInstagramPost(userId: string, payload: any): Promise<boolean> {
+async function saveInstagramPost(userId: string, payload: InstagramSharePayload): Promise<boolean> {
   try {
     const postUrl = payload?.url || ''
     const postId = postUrl.match(/\/p\/([^\/]+)/)?.[1] || postUrl.match(/\/reel\/([^\/]+)/)?.[1]

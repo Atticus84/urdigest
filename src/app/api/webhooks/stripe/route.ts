@@ -5,9 +5,16 @@ import { sendPaymentFailedEmail } from '@/lib/email/send'
 
 export const dynamic = 'force-dynamic'
 
+type SubscriptionStatus = Stripe.Subscription.Status | 'canceled'
+
+interface StripeEventMetadata {
+  [key: string]: unknown
+}
+
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: '2024-12-18.acacia' as any,
+    // @ts-expect-error -- using newer API version than SDK types support
+    apiVersion: '2024-12-18.acacia',
   })
 }
 
@@ -24,8 +31,9 @@ export async function POST(request: NextRequest) {
 
     try {
       event = getStripe().webhooks.constructEvent(body, signature, getWebhookSecret())
-    } catch (err: any) {
-      console.error('Webhook signature verification failed:', err.message)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error('Webhook signature verification failed:', message)
       return NextResponse.json(
         { error: 'Invalid signature' },
         { status: 400 }
@@ -87,7 +95,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
   await supabaseAdmin
     .from('users')
     .update({
-      subscription_status: subscription.status as any,
+      subscription_status: subscription.status as SubscriptionStatus,
       stripe_subscription_id: subscription.id,
       subscription_started_at: new Date(subscription.created * 1000).toISOString(),
       subscription_ends_at: subscription.current_period_end
@@ -189,7 +197,7 @@ async function logStripeEvent(event: Stripe.Event) {
       user_id: userId,
       event_type: event.type,
       stripe_event_id: event.id,
-      metadata: event.data.object as any,
+      metadata: event.data.object as unknown as StripeEventMetadata,
     })
   }
 }
