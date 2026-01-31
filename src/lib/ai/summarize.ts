@@ -12,6 +12,8 @@ export interface PostSummary {
   title: string
   summary: string
   tags: string[]
+  categories: string[]
+  sentiment: 'positive' | 'negative' | 'neutral'
 }
 
 export async function summarizePosts(
@@ -26,7 +28,9 @@ export async function summarizePosts(
 For each post, provide:
 1. A catchy one-line title (10-15 words)
 2. A 2-3 sentence summary highlighting key insights or what makes this content valuable
-3. Up to 3 relevant tags
+3. Up to 5 relevant tags (specific keywords like "meal prep", "HIIT", "budgeting tips")
+4. 1-3 categories from this list: fitness, health, cooking, fashion, beauty, tech, finance, travel, home, parenting, education, entertainment, sports, art, music, photography, business, career, relationships, pets, diy, automotive, gaming, science, news, humor
+5. Sentiment: "positive", "negative", or "neutral"
 
 Be conversational, enthusiastic, and helpful. Focus on actionable insights.`
 
@@ -48,7 +52,9 @@ Return a JSON array with this exact structure:
     "post_index": 0,
     "title": "One-line catchy summary",
     "summary": "2-3 sentences about what makes this post valuable",
-    "tags": ["tag1", "tag2", "tag3"]
+    "tags": ["tag1", "tag2", "tag3"],
+    "categories": ["fitness", "health"],
+    "sentiment": "positive"
   }
 ]
 
@@ -112,5 +118,7 @@ export function generateFallbackSummaries(posts: SavedPost[]): PostSummary[] {
       : `${post.post_type || 'Post'} by @${post.author_username || 'unknown'}`,
     summary: post.caption || 'No caption available for this post.',
     tags: [],
+    categories: [],
+    sentiment: 'neutral' as const,
   }))
 }

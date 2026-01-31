@@ -7,16 +7,38 @@ interface PostSummary {
   author_username: string | null
 }
 
+interface AdData {
+  image_url?: string | null
+  headline: string
+  body_text: string
+  cta_url: string
+  impression_id: string
+}
+
 interface DigestEmailProps {
   posts: PostSummary[]
   userEmail: string
   date: string
+  userId?: string
+  digestId?: string
+  ad?: AdData | null
+}
+
+function trackUrl(url: string, digestId?: string, postId?: string, userId?: string): string {
+  if (!digestId || !userId) return url
+  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://urdigest.com'
+  const params = new URLSearchParams({ d: digestId, u: userId, url })
+  if (postId) params.set('p', postId)
+  return `${base}/api/track/click?${params.toString()}`
 }
 
 export function DigestEmail({
   posts,
   userEmail,
   date,
+  userId,
+  digestId,
+  ad,
 }: DigestEmailProps) {
   return `
 <!DOCTYPE html>
@@ -55,10 +77,28 @@ export function DigestEmail({
                   <p style="margin: 0 0 16px 0; font-size: 14px; color: #999999;">By @${post.author_username}</p>
                 ` : ''}
 
-                <a href="${post.instagram_url}" style="display: inline-block; padding: 12px 24px; background-color: #E4405F; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">View on Instagram →</a>
+                <a href="${trackUrl(post.instagram_url, digestId, post.id, userId)}" style="display: inline-block; padding: 12px 24px; background-color: #E4405F; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">View on Instagram →</a>
 
                 ${index < posts.length - 1 ? '<hr style="margin: 32px 0; border: 0; border-top: 1px solid #eaeaea;">' : ''}
               `).join('')}
+
+              ${ad ? `
+                <tr>
+                  <td style="padding: 24px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #fafafa; border-radius: 12px; border: 1px solid #eaeaea;">
+                      <tr>
+                        <td style="padding: 20px;">
+                          <p style="margin: 0 0 4px 0; font-size: 11px; color: #999999; text-transform: uppercase; letter-spacing: 0.5px;">Sponsored</p>
+                          ${ad.image_url ? `<img src="${ad.image_url}" alt="${ad.headline}" style="width: 100%; height: auto; border-radius: 8px; margin-bottom: 12px;">` : ''}
+                          <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #111111;">${ad.headline}</h3>
+                          <p style="margin: 0 0 16px 0; font-size: 14px; color: #333333; line-height: 1.5;">${ad.body_text}</p>
+                          <a href="${trackUrl(ad.cta_url, digestId, ad.impression_id, userId)}" style="display: inline-block; padding: 10px 20px; background-color: #111111; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Learn More →</a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              ` : ''}
             </td>
           </tr>
 

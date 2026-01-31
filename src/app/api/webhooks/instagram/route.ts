@@ -191,6 +191,12 @@ async function handleMessage(event: any) {
     case 'awaiting_time':
       await handleTimeResponse(user.id, senderId, message.text || '')
       break
+    case 'awaiting_age':
+      await handleAgeResponse(user.id, senderId, message.text || '')
+      break
+    case 'awaiting_gender':
+      await handleGenderResponse(user.id, senderId, message.text || '')
+      break
     case 'onboarded':
       await handleOnboardedMessage(user.id, senderId, message)
       break
@@ -431,7 +437,7 @@ async function handleTimeResponse(userId: string, instagramUserId: string, text:
     .from('users')
     .update({
       digest_time: digestTime,
-      onboarding_state: 'onboarded',
+      onboarding_state: 'awaiting_age',
       digest_enabled: true,
     })
     .eq('id', userId)
@@ -443,10 +449,80 @@ async function handleTimeResponse(userId: string, instagramUserId: string, text:
     return
   }
 
-  console.log(`User ${userId} onboarded successfully`)
   const sent = await sendInstagramMessage(
     instagramUserId,
-    "You're all set! 🎉 Now just send me any Instagram posts and I'll include them in your daily digest.\n\nTo share a post, open it in Instagram and use the share button to send it to me here."
+    "Almost done! A couple quick optional questions to personalize your experience.\n\nWhat's your age range?\n1) 18-24\n2) 25-34\n3) 35-44\n4) 45-54\n5) 55+\n\n(Send \"skip\" to skip)"
+  )
+  if (!sent) console.error(`Failed to send age question to ${instagramUserId}`)
+}
+
+const AGE_RANGES = ['18-24', '25-34', '35-44', '45-54', '55+']
+
+async function handleAgeResponse(userId: string, instagramUserId: string, text: string) {
+  const cleaned = text.trim().toLowerCase()
+
+  if (cleaned !== 'skip') {
+    // Accept number (1-5) or the range text directly
+    let ageRange: string | null = null
+    const num = parseInt(cleaned)
+    if (num >= 1 && num <= 5) {
+      ageRange = AGE_RANGES[num - 1]
+    } else {
+      const match = AGE_RANGES.find(r => cleaned.includes(r))
+      if (match) ageRange = match
+    }
+
+    if (ageRange) {
+      await supabaseAdmin
+        .from('users')
+        .update({ age_range: ageRange })
+        .eq('id', userId)
+    }
+  }
+
+  await supabaseAdmin
+    .from('users')
+    .update({ onboarding_state: 'awaiting_gender' })
+    .eq('id', userId)
+
+  const sent = await sendInstagramMessage(
+    instagramUserId,
+    "What's your gender?\n1) Male\n2) Female\n3) Non-binary\n4) Prefer not to say\n\n(Send \"skip\" to skip)"
+  )
+  if (!sent) console.error(`Failed to send gender question to ${instagramUserId}`)
+}
+
+const GENDERS = ['male', 'female', 'non-binary', 'prefer not to say']
+
+async function handleGenderResponse(userId: string, instagramUserId: string, text: string) {
+  const cleaned = text.trim().toLowerCase()
+
+  if (cleaned !== 'skip') {
+    let gender: string | null = null
+    const num = parseInt(cleaned)
+    if (num >= 1 && num <= 4) {
+      gender = GENDERS[num - 1]
+    } else {
+      const match = GENDERS.find(g => cleaned.includes(g))
+      if (match) gender = match
+    }
+
+    if (gender) {
+      await supabaseAdmin
+        .from('users')
+        .update({ gender })
+        .eq('id', userId)
+    }
+  }
+
+  await supabaseAdmin
+    .from('users')
+    .update({ onboarding_state: 'onboarded' })
+    .eq('id', userId)
+
+  const sent = await sendInstagramMessage(
+    instagramUserId,
+    "You're all set! Now just send me any Instagram posts and I'll include them in your daily digest.\n\nTo share a post, open it in Instagram and use the share button to send it to me here."
   )
   if (!sent) console.error(`Failed to send onboarding complete message to ${instagramUserId}`)
 }
