@@ -46,10 +46,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Track processed message IDs to prevent duplicate processing
-const processedMessageIds = new Set<string>()
-const MAX_PROCESSED_IDS = 1000 // Keep last 1000 message IDs in memory
-
 // Instagram webhook events (POST request)
 export async function POST(request: NextRequest) {
   try {
@@ -176,23 +172,31 @@ async function handleMessage(event: any) {
     return
   }
 
-  // Deduplication: Skip if we've already processed this message
-  if (messageId && processedMessageIds.has(messageId)) {
-    console.log(`⏭️  Skipping duplicate message: ${messageId} from sender ${senderId}`)
-    console.log('=== handleMessage END (duplicate) ===')
-    return
-  }
-
-  // Track this message ID
+  // Deduplication: attempt insert into processed_messages; skip if already exists
   if (messageId) {
-    processedMessageIds.add(messageId)
-    // Clean up old IDs to prevent memory leak
-    if (processedMessageIds.size > MAX_PROCESSED_IDS) {
-      const firstId = processedMessageIds.values().next().value
-      if (firstId) {
-        processedMessageIds.delete(firstId)
+    const { error: dedupError } = await supabaseAdmin
+      .from('processed_messages')
+      .insert({ message_id: messageId })
+
+    if (dedupError) {
+      if (dedupError.code === '23505') {
+        // Unique violation — already processed
+        console.log(`⏭️  Skipping duplicate message: ${messageId} from sender ${senderId}`)
+        console.log('=== handleMessage END (duplicate) ===')
+        return
       }
+      // Non-conflict error — log but continue processing to avoid dropping messages
+      console.error('Dedup insert error (continuing anyway):', dedupError)
     }
+
+    // Clean up entries older than 7 days (best-effort, non-blocking)
+    supabaseAdmin
+      .from('processed_messages')
+      .delete()
+      .lt('processed_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      .then(({ error }) => {
+        if (error) console.error('Dedup cleanup error:', error)
+      })
   }
 
   console.log(`✅ Processing message from sender ${senderId}:`, {
