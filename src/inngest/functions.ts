@@ -2,11 +2,39 @@ import { inngest } from './client'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { summarizePosts, generateFallbackSummaries } from '@/lib/ai/summarize'
 import { sendDigestEmail, sendTrialEndedEmail } from '@/lib/email/send'
+import { generateUnsubscribeToken } from '@/lib/unsubscribe-token'
 import { format } from 'date-fns'
+
+// Checks if a user's preferred digest time falls within the current 15-minute window
+function isUserDigestTimeNow(digestTime: string, timezone: string): boolean {
+  try {
+    // Get current time in the user's timezone
+    const now = new Date()
+    const userTimeStr = now.toLocaleTimeString('en-US', {
+      timeZone: timezone,
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+
+    // Parse user's current time and their preferred digest time
+    const [nowHour, nowMinute] = userTimeStr.split(':').map(Number)
+    const [prefHour, prefMinute] = digestTime.split(':').map(Number)
+
+    const nowTotalMinutes = nowHour * 60 + nowMinute
+    const prefTotalMinutes = prefHour * 60 + prefMinute
+
+    // Check if within the current 15-minute window
+    return nowTotalMinutes >= prefTotalMinutes && nowTotalMinutes < prefTotalMinutes + 15
+  } catch (error) {
+    console.error(`Error checking digest time for timezone ${timezone}:`, error)
+    return false
+  }
+}
 
 export const dailyDigest = inngest.createFunction(
   { id: 'daily-digest', name: 'Generate and send daily digests' },
-  { cron: '0 6 * * *' }, // Run at 6am daily
+  { cron: '*/15 * * * *' }, // Run every 15 minutes, check per-user timing
   async ({ event, step }) => {
     // Get all users who should receive digests
     const { data: users, error } = await supabaseAdmin
@@ -20,7 +48,19 @@ export const dailyDigest = inngest.createFunction(
       return { error: 'Failed to fetch users' }
     }
 
-    console.log(`Processing digests for ${users.length} users`)
+    // Filter to users whose digest time is now in their timezone
+    const eligibleUsers = users.filter(user =>
+      isUserDigestTimeNow(
+        user.digest_time || '06:00:00',
+        user.timezone || 'America/New_York'
+      )
+    )
+
+    console.log(`Digest check: ${users.length} total users, ${eligibleUsers.length} eligible right now`)
+
+    if (eligibleUsers.length === 0) {
+      return { success: 0, skipped: 0, failed: 0, checked: users.length }
+    }
 
     const results = {
       success: 0,
@@ -28,8 +68,8 @@ export const dailyDigest = inngest.createFunction(
       failed: 0,
     }
 
-    // Process each user
-    for (const user of users) {
+    // Process each eligible user
+    for (const user of eligibleUsers) {
       try {
         await step.run(`digest-for-${user.id}`, async () => {
           return await generateDigestForUser(user)
@@ -98,14 +138,23 @@ async function generateDigestForUser(user: any) {
     author_username: post.author_username,
   }))
 
-  // Send email
-  const resendEmailId = await sendDigestEmail(
-    user.email,
-    emailPosts,
-    format(new Date(), 'MMMM d, yyyy')
-  )
+  // Send email — if this fails, don't mark posts as processed
+  const unsubscribeToken = generateUnsubscribeToken(user.email)
+  let resendEmailId: string
 
-  // Save digest record
+  try {
+    resendEmailId = await sendDigestEmail(
+      user.email,
+      emailPosts,
+      format(new Date(), 'MMMM d, yyyy'),
+      unsubscribeToken
+    )
+  } catch (emailError) {
+    console.error(`Email send failed for user ${user.id}, posts NOT marked as processed:`, emailError)
+    throw new Error(`Email delivery failed: ${emailError instanceof Error ? emailError.message : String(emailError)}`)
+  }
+
+  // Only mark posts processed and save digest after successful email send
   await supabaseAdmin.from('digests').insert({
     user_id: user.id,
     subject: `Your daily urdigest: ${posts.length} ${posts.length === 1 ? 'post' : 'posts'}`,
@@ -116,7 +165,6 @@ async function generateDigestForUser(user: any) {
     resend_email_id: resendEmailId,
   })
 
-  // Mark posts as processed
   await supabaseAdmin
     .from('saved_posts')
     .update({

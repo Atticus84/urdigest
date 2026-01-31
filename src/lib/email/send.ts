@@ -19,7 +19,8 @@ export interface EmailPost {
 export async function sendDigestEmail(
   to: string,
   posts: EmailPost[],
-  date: string
+  date: string,
+  unsubscribeToken: string
 ): Promise<string> {
   try {
     const subject = `☀️ Your daily urdigest: ${posts.length} ${posts.length === 1 ? 'post' : 'posts'} you saved`
@@ -28,6 +29,7 @@ export async function sendDigestEmail(
       posts,
       userEmail: to,
       date,
+      unsubscribeToken,
     })
 
     const { data, error } = await getResend().emails.send({
