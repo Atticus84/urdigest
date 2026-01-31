@@ -1,5 +1,6 @@
 import { Resend } from 'resend'
 import { DigestEmail } from '@/emails/digest'
+import { BRAND_COLOR_INSTAGRAM } from '@/lib/constants'
 
 let _resend: Resend | null = null
 function getResend() {
@@ -61,7 +62,7 @@ export async function sendTrialEndedEmail(to: string): Promise<void> {
         <h1>Your trial has ended</h1>
         <p>Thanks for trying urdigest! Your free trial digest has been sent.</p>
         <p>To continue receiving daily digests, please upgrade to Premium for just $5/month.</p>
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" style="display: inline-block; padding: 12px 24px; background: #E4405F; color: white; text-decoration: none; border-radius: 8px;">
+        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" style="display: inline-block; padding: 12px 24px; background: ${BRAND_COLOR_INSTAGRAM}; color: white; text-decoration: none; border-radius: 8px;">
           Upgrade to Premium →
         </a>
       `,
@@ -84,7 +85,7 @@ export async function sendPaymentFailedEmail(to: string): Promise<void> {
         <h1>Payment failed</h1>
         <p>We couldn't process your payment for urdigest.</p>
         <p>Please update your payment method to continue receiving daily digests.</p>
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" style="display: inline-block; padding: 12px 24px; background: #E4405F; color: white; text-decoration: none; border-radius: 8px;">
+        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" style="display: inline-block; padding: 12px 24px; background: ${BRAND_COLOR_INSTAGRAM}; color: white; text-decoration: none; border-radius: 8px;">
           Update Payment Method →
         </a>
       `,

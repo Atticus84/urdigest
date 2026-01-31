@@ -1,3 +1,5 @@
+import { BRAND_COLOR_INSTAGRAM } from '@/lib/constants'
+
 interface PostSummary {
   id: string
   title: string
@@ -55,7 +57,7 @@ export function DigestEmail({
                   <p style="margin: 0 0 16px 0; font-size: 14px; color: #999999;">By @${post.author_username}</p>
                 ` : ''}
 
-                <a href="${post.instagram_url}" style="display: inline-block; padding: 12px 24px; background-color: #E4405F; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">View on Instagram →</a>
+                <a href="${post.instagram_url}" style="display: inline-block; padding: 12px 24px; background-color: ${BRAND_COLOR_INSTAGRAM}; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">View on Instagram →</a>
 
                 ${index < posts.length - 1 ? '<hr style="margin: 32px 0; border: 0; border-top: 1px solid #eaeaea;">' : ''}
               `).join('')}
@@ -66,9 +68,9 @@ export function DigestEmail({
           <tr>
             <td style="padding: 24px; background-color: #fafafa; border-top: 1px solid #eaeaea; text-align: center;">
               <p style="margin: 0 0 12px 0; font-size: 14px; color: #666666;">
-                <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings" style="color: #E4405F; text-decoration: none;">Manage preferences</a>
+                <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings" style="color: ${BRAND_COLOR_INSTAGRAM}; text-decoration: none;">Manage preferences</a>
                 ·
-                <a href="${process.env.NEXT_PUBLIC_APP_URL}/unsubscribe" style="color: #E4405F; text-decoration: none;">Unsubscribe</a>
+                <a href="${process.env.NEXT_PUBLIC_APP_URL}/unsubscribe" style="color: ${BRAND_COLOR_INSTAGRAM}; text-decoration: none;">Unsubscribe</a>
               </p>
               <p style="margin: 0; font-size: 12px; color: #999999;">Made with ❤️ by urdigest</p>
             </td>

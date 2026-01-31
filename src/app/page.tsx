@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { SUPPORT_EMAIL } from '@/lib/constants'
 
 export default function LandingPage() {
   return (
@@ -241,7 +242,7 @@ export default function LandingPage() {
               <Link href="/terms" className="hover:text-gray-900">
                 Terms
               </Link>
-              <a href="mailto:archontechnologiesllc@gmail.com" className="hover:text-gray-900">
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:text-gray-900">
                 Contact
               </a>
             </div>

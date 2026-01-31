@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { sendInstagramMessage } from '@/lib/instagram/send-message'
 import { getInstagramUsername } from '@/lib/instagram/get-username'
+import { PLACEHOLDER_EMAIL_DOMAIN } from '@/lib/constants'
 
 export const dynamic = 'force-dynamic'
 
@@ -284,7 +285,7 @@ async function handleNewUser(instagramUserId: string, instagramUsername?: string
     }
   }
   
-  const email = `pending_${instagramUserId}@placeholder.urdigest`
+  const email = `pending_${instagramUserId}@${PLACEHOLDER_EMAIL_DOMAIN}`
   let newUserId: string | null = null
   
   // Check if user profile already exists (might have been partially created)

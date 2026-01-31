@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { SUPPORT_EMAIL } from '@/lib/constants'
 
 export default function TermsPage() {
   return (
@@ -127,7 +128,7 @@ export default function TermsPage() {
           <h2>14. Contact</h2>
           <p>
             For questions about these Terms of Service, contact us at{' '}
-            <a href="mailto:archontechnologiesllc@gmail.com">archontechnologiesllc@gmail.com</a>
+            <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
           </p>
 
           <h2>15. Entire Agreement</h2>

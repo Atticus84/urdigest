@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { SUPPORT_EMAIL } from '@/lib/constants'
 
 export default function PrivacyPage() {
   return (
@@ -87,7 +88,7 @@ export default function PrivacyPage() {
           <h2>10. Contact Us</h2>
           <p>
             If you have questions about this privacy policy or your data, contact us at{' '}
-            <a href="mailto:archontechnologiesllc@gmail.com">archontechnologiesllc@gmail.com</a>
+            <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
           </p>
         </div>
       </div>

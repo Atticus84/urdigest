@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ensureUserProfile } from '@/lib/supabase/ensure-profile'
 import type { User } from '@/types/database'
+import { SUPPORT_EMAIL } from '@/lib/constants'
 
 export default function SubscriptionPage() {
   const [user, setUser] = useState<User | null>(null)
@@ -213,8 +214,8 @@ export default function SubscriptionPage() {
       <div className="mt-6 text-sm text-gray-600">
         <p className="mb-2">
           <strong>Questions?</strong> Email us at{' '}
-          <a href="mailto:archontechnologiesllc@gmail.com" className="text-instagram-pink hover:underline">
-            archontechnologiesllc@gmail.com
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-instagram-pink hover:underline">
+            {SUPPORT_EMAIL}
           </a>
         </p>
         <p>

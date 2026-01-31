@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss'
+import { BRAND_COLOR_INSTAGRAM } from './src/lib/constants'
 
 const config: Config = {
   content: [
@@ -10,7 +11,7 @@ const config: Config = {
     extend: {
       colors: {
         instagram: {
-          pink: '#E4405F',
+          pink: BRAND_COLOR_INSTAGRAM,
           purple: '#833AB4',
           orange: '#F77737',
         },
