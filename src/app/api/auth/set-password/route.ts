@@ -37,6 +37,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to set password' }, { status: 500 })
     }
 
+    // Mark that password has been set
+    await supabaseAdmin
+      .from('users')
+      .update({ password_set_at: new Date().toISOString() })
+      .eq('id', user.id)
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error setting password:', error)

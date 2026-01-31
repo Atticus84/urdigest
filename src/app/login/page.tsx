@@ -106,15 +106,20 @@ export default function LoginPage() {
         return
       }
 
-      // Password set successfully, now log them in
+      // Password set successfully, wait a moment for Supabase to process, then log them in
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
       const supabase = createClient()
       const { error: loginError } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.toLowerCase().trim(),
         password,
       })
 
       if (loginError) {
-        setError('Password set but login failed. Please try logging in.')
+        console.error('Login error after password set:', loginError)
+        setError(`Password set but login failed: ${loginError.message}. Please try logging in with your password.`)
+        // Switch to password login step so they can try again
+        setStep('password')
         setLoading(false)
       } else {
         router.push('/dashboard')

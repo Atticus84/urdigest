@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     // Check if user exists in users table
     const { data: user, error } = await supabaseAdmin
       .from('users')
-      .select('id, email, instagram_user_id')
+      .select('id, email, instagram_user_id, password_set_at')
       .eq('email', email.toLowerCase())
       .single()
 
@@ -22,11 +22,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ exists: false })
     }
 
-    // Check if auth user exists and has a password set
-    // We can't directly check if password is set, but we can check if they can authenticate
-    // For now, we'll assume if they have an instagram_user_id, they likely need to set a password
-    // (since DM users get random passwords)
-    const needsPasswordSetup = !!user.instagram_user_id
+    // Check if user needs password setup
+    // If they have instagram_user_id but no password_set_at, they need to set password
+    // If password_set_at exists, they've already set their password
+    const needsPasswordSetup = !!user.instagram_user_id && !user.password_set_at
 
     return NextResponse.json({
       exists: true,

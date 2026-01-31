@@ -42,6 +42,7 @@ export interface Database {
           instagram_user_id: string | null
           onboarding_state: string | null
           last_post_received_at: string | null
+          password_set_at: string | null
         }
         Insert: {
           id: string
@@ -63,6 +64,7 @@ export interface Database {
           instagram_user_id?: string | null
           onboarding_state?: string | null
           last_post_received_at?: string | null
+          password_set_at?: string | null
         }
         Update: {
           id?: string
@@ -84,6 +86,7 @@ export interface Database {
           instagram_user_id?: string | null
           onboarding_state?: string | null
           last_post_received_at?: string | null
+          password_set_at?: string | null
         }
         Relationships: []
       }
