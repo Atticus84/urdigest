@@ -551,11 +551,22 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
   // Check for shared media (Instagram post shared via DM)
   if (message.attachments) {
     let savedCount = 0
+    let duplicateCount = 0
+    let unsupportedTypes: string[] = []
+    const mediaTypes = ['media_share', 'share', 'ig_reel', 'link', 'video', 'image', 'audio']
+
     for (const attachment of message.attachments) {
-      console.log(`Processing attachment:`, { type: attachment.type })
-      if (attachment.type === 'media_share' || attachment.type === 'share') {
+      console.log(`Processing attachment:`, { type: attachment.type, payload: JSON.stringify(attachment.payload)?.substring(0, 200) })
+      if (mediaTypes.includes(attachment.type)) {
         const saved = await saveInstagramPost(userId, attachment.payload)
-        if (saved) savedCount++
+        if (saved) {
+          savedCount++
+        } else {
+          duplicateCount++
+        }
+      } else {
+        unsupportedTypes.push(attachment.type)
+        console.log(`⚠️ Unsupported attachment type: ${attachment.type}`, JSON.stringify(attachment).substring(0, 500))
       }
     }
 
@@ -568,6 +579,28 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
           : `✅ Added ${savedCount} posts to your next digest!`
       )
       if (!sent) console.error(`Failed to send confirmation message to ${instagramUserId}`)
+      return
+    }
+
+    if (duplicateCount > 0) {
+      console.log(`All ${duplicateCount} post(s) were duplicates for user ${userId}`)
+      const sent = await sendInstagramMessage(
+        instagramUserId,
+        duplicateCount === 1
+          ? "ℹ️ That post is already in your digest!"
+          : `ℹ️ Those posts are already in your digest!`
+      )
+      if (!sent) console.error(`Failed to send duplicate message to ${instagramUserId}`)
+      return
+    }
+
+    if (unsupportedTypes.length > 0) {
+      console.warn(`Unsupported attachment types from user ${userId}:`, unsupportedTypes)
+      const sent = await sendInstagramMessage(
+        instagramUserId,
+        "I received your message but couldn't find an Instagram post to save. Try sharing the post using Instagram's share button (the paper airplane icon)."
+      )
+      if (!sent) console.error(`Failed to send unsupported type message to ${instagramUserId}`)
       return
     }
   }
@@ -629,11 +662,11 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
 
 async function saveInstagramPost(userId: string, payload: any): Promise<boolean> {
   try {
-    const postUrl = payload?.url || ''
+    const postUrl = payload?.url || payload?.link || ''
     const postId = postUrl.match(/\/p\/([^\/]+)/)?.[1] || postUrl.match(/\/reel\/([^\/]+)/)?.[1]
 
     if (!postUrl) {
-      console.error('No URL in shared post payload')
+      console.error('No URL in shared post payload:', JSON.stringify(payload)?.substring(0, 500))
       return false
     }
 
