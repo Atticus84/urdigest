@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { sendInstagramMessage } from '@/lib/instagram/send-message'
+import { getInstagramUsername } from '@/lib/instagram/get-username'
 
 export const dynamic = 'force-dynamic'
 
@@ -152,6 +153,7 @@ async function handleMessage(event: any) {
   console.log('=== handleMessage START ===')
   
   const senderId = event?.sender?.id
+  const senderUsername = event?.sender?.username // Instagram username if available in webhook
   const message = event?.message
   const messageId = message?.mid
 
@@ -159,6 +161,13 @@ async function handleMessage(event: any) {
     console.error('❌ No sender.id in event')
     console.log('=== handleMessage END (no sender) ===')
     return
+  }
+
+  // Log if username is available in webhook
+  if (senderUsername) {
+    console.log(`📝 Username found in webhook: ${senderUsername}`)
+  } else {
+    console.log('ℹ️  Username not in webhook payload, will try to fetch from API if needed')
   }
 
   if (!message) {
@@ -208,9 +217,28 @@ async function handleMessage(event: any) {
   if (!user) {
     console.log(`👤 User not found, creating new user for Instagram ID: ${senderId}`)
     // New user — create profile and start onboarding
-    await handleNewUser(senderId)
+    await handleNewUser(senderId, senderUsername)
     console.log('=== handleMessage END (new user created) ===')
     return
+  }
+
+  // Update username if we have it and it's different
+  let usernameToStore = senderUsername
+  if (!usernameToStore && !user.instagram_username) {
+    // Try to fetch username from API if we don't have it
+    console.log(`🔍 Fetching Instagram username from API for user ${senderId}...`)
+    usernameToStore = await getInstagramUsername(senderId)
+    if (usernameToStore) {
+      console.log(`✅ Fetched username from API: ${usernameToStore}`)
+    }
+  }
+
+  if (usernameToStore && user.instagram_username !== usernameToStore) {
+    console.log(`📝 Updating Instagram username: ${user.instagram_username || '(none)'} -> ${usernameToStore}`)
+    await supabaseAdmin
+      .from('users')
+      .update({ instagram_username: usernameToStore })
+      .eq('id', user.id)
   }
 
   console.log(`👤 Found existing user: ${user.id}, onboarding_state: ${user.onboarding_state}`)
@@ -242,8 +270,19 @@ async function handleMessage(event: any) {
   }
 }
 
-async function handleNewUser(instagramUserId: string) {
-  console.log(`=== handleNewUser START for Instagram ID: ${instagramUserId} ===`)
+async function handleNewUser(instagramUserId: string, instagramUsername?: string) {
+  console.log(`=== handleNewUser START for Instagram ID: ${instagramUserId}${instagramUsername ? `, username: ${instagramUsername}` : ''} ===`)
+  
+  // If username not provided in webhook, try to fetch it from API
+  if (!instagramUsername) {
+    console.log(`🔍 Username not in webhook, fetching from API for ${instagramUserId}...`)
+    instagramUsername = await getInstagramUsername(instagramUserId) || undefined
+    if (instagramUsername) {
+      console.log(`✅ Fetched username from API: ${instagramUsername}`)
+    } else {
+      console.log(`⚠️  Could not fetch username from API for ${instagramUserId}`)
+    }
+  }
   
   const email = `pending_${instagramUserId}@placeholder.urdigest`
   let newUserId: string | null = null
@@ -332,14 +371,19 @@ async function handleNewUser(instagramUserId: string) {
       console.log(`✅ User profile updated successfully`)
     } else {
       // Create the user profile
+      const insertData: any = {
+        id: newUserId,
+        email: email,
+        instagram_user_id: instagramUserId,
+        onboarding_state: 'awaiting_email',
+      }
+      if (instagramUsername) {
+        insertData.instagram_username = instagramUsername
+      }
+      
       const { error, data } = await supabaseAdmin
         .from('users')
-        .insert({
-          id: newUserId,
-          email: email,
-          instagram_user_id: instagramUserId,
-          onboarding_state: 'awaiting_email',
-        })
+        .insert(insertData)
         .select()
 
       if (error) {
