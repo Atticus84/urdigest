@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { inngest } from '@/inngest/client'
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { generateDigestForUser } from '@/lib/digest/generate'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 export async function POST() {
   try {
@@ -15,7 +17,7 @@ export async function POST() {
     }
 
     // Verify user exists in users table
-    const { data: userData, error: userError } = await supabase
+    const { data: userData, error: userError } = await supabaseAdmin
       .from('users')
       .select('*')
       .eq('id', user.id)
@@ -34,21 +36,26 @@ export async function POST() {
       return NextResponse.json({ error: 'Invalid subscription status' }, { status: 400 })
     }
 
-    // Trigger manual digest via Inngest
-    const eventId = await inngest.send({
-      name: 'digest/manual',
-      data: {
-        userId: user.id,
-      },
-    })
+    // Generate and send digest directly (not via Inngest)
+    const result = await generateDigestForUser(userData)
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Digest sending triggered',
-      eventId 
+    if (result.skipped) {
+      const message = result.reason === 'trial_used'
+        ? 'Your trial digest has already been sent. Upgrade to Premium to continue.'
+        : 'No pending posts to include in digest'
+      return NextResponse.json({ error: message }, { status: 400 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Digest sent successfully',
+      postsCount: result.postsCount,
     })
-  } catch (error) {
-    console.error('Unexpected error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  } catch (error: any) {
+    console.error('Failed to send digest:', error)
+    return NextResponse.json(
+      { error: error.message || 'Failed to send digest. Please try again.' },
+      { status: 500 }
+    )
   }
 }
