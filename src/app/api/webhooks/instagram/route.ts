@@ -577,12 +577,38 @@ async function saveInstagramPost(userId: string, payload: any): Promise<boolean>
       }
     }
 
+    // Extract media data from the Instagram DM attachment payload
+    const isReel = postUrl.includes('/reel/')
+    const postType = isReel ? 'reel' : (payload?.type || 'photo')
+    const caption = payload?.title || payload?.caption || null
+    const authorUsername = payload?.source?.username || payload?.author_username || null
+    const thumbnailUrl = payload?.image_url || payload?.thumbnail_url || null
+
+    // Collect all available media URLs
+    const mediaUrls: string[] = []
+    if (payload?.image_url) mediaUrls.push(payload.image_url)
+    if (payload?.video_url) mediaUrls.push(payload.video_url)
+    if (payload?.media_url) mediaUrls.push(payload.media_url)
+
+    console.log(`Saving post for user ${userId}:`, {
+      postUrl,
+      postType,
+      hasCaption: !!caption,
+      hasThumbnail: !!thumbnailUrl,
+      mediaUrlCount: mediaUrls.length,
+    })
+
     await supabaseAdmin
       .from('saved_posts')
       .insert({
         user_id: userId,
         instagram_post_id: postId || null,
         instagram_url: postUrl,
+        post_type: postType,
+        caption,
+        author_username: authorUsername,
+        thumbnail_url: thumbnailUrl,
+        media_urls: mediaUrls.length > 0 ? mediaUrls : null,
       })
 
     // Update post count
