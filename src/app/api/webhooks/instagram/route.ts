@@ -393,6 +393,7 @@ async function handleEmailResponse(userId: string, instagramUserId: string, text
     return
   }
 
+  // Update email in users table
   const { error } = await supabaseAdmin
     .from('users')
     .update({ email, onboarding_state: 'awaiting_time' })
@@ -403,6 +404,19 @@ async function handleEmailResponse(userId: string, instagramUserId: string, text
     const sent = await sendInstagramMessage(instagramUserId, "Something went wrong. Please try sending your email again.")
     if (!sent) console.error(`Failed to send error message to ${instagramUserId}`)
     return
+  }
+
+  // Also update the auth user's email so they can log in
+  const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+    userId,
+    { email }
+  )
+
+  if (authError) {
+    console.error('Failed to update auth user email:', authError)
+    // Don't fail the whole flow, but log it
+  } else {
+    console.log(`✅ Updated auth user email to ${email}`)
   }
 
   console.log(`Email updated successfully, asking for time preference`)

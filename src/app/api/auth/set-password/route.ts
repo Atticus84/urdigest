@@ -26,10 +26,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Update the user's password using admin API
+    // Get the correct email from users table
+    const { data: userData } = await supabaseAdmin
+      .from('users')
+      .select('email')
+      .eq('id', user.id)
+      .single()
+
+    // Update the user's password AND email (in case auth email is still placeholder)
+    const updateData: any = { password }
+    if (userData?.email) {
+      updateData.email = userData.email
+    }
+
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       user.id,
-      { password }
+      updateData
     )
 
     if (updateError) {

@@ -59,13 +59,21 @@ export default function LoginPage() {
 
     const supabase = createClient()
 
+    // Normalize email to lowercase and trim
+    const normalizedEmail = email.toLowerCase().trim()
+
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password,
     })
 
     if (error) {
-      setError(error.message)
+      // More helpful error message
+      if (error.message.includes('Invalid login credentials')) {
+        setError('Invalid email or password. Please check and try again.')
+      } else {
+        setError(error.message)
+      }
       setLoading(false)
     } else {
       router.push('/dashboard')
