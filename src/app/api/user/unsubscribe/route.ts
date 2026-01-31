@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { verifyUnsubscribeToken } from '@/lib/unsubscribe-token'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json()
+    const { email, token } = await request.json()
 
-    if (!email) {
+    if (!email || !token) {
       return NextResponse.json(
-        { error: 'Email is required' },
+        { error: 'Email and token are required' },
         { status: 400 }
+      )
+    }
+
+    if (!verifyUnsubscribeToken(email, token)) {
+      return NextResponse.json(
+        { error: 'Invalid unsubscribe link' },
+        { status: 403 }
       )
     }
 

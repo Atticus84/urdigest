@@ -11,12 +11,14 @@ interface DigestEmailProps {
   posts: PostSummary[]
   userEmail: string
   date: string
+  unsubscribeToken: string
 }
 
 export function DigestEmail({
   posts,
   userEmail,
   date,
+  unsubscribeToken,
 }: DigestEmailProps) {
   return `
 <!DOCTYPE html>
@@ -68,7 +70,7 @@ export function DigestEmail({
               <p style="margin: 0 0 12px 0; font-size: 14px; color: #666666;">
                 <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings" style="color: #E4405F; text-decoration: none;">Manage preferences</a>
                 ·
-                <a href="${process.env.NEXT_PUBLIC_APP_URL}/unsubscribe" style="color: #E4405F; text-decoration: none;">Unsubscribe</a>
+                <a href="${process.env.NEXT_PUBLIC_APP_URL}/unsubscribe?email=${encodeURIComponent(userEmail)}&token=${unsubscribeToken}" style="color: #E4405F; text-decoration: none;">Unsubscribe</a>
               </p>
               <p style="margin: 0; font-size: 12px; color: #999999;">Made with ❤️ by urdigest</p>
             </td>

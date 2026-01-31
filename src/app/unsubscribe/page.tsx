@@ -1,24 +1,40 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 export default function UnsubscribePage() {
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
+  const [token, setToken] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const emailParam = searchParams.get('email')
+    const tokenParam = searchParams.get('token')
+    if (emailParam) setEmail(emailParam)
+    if (tokenParam) setToken(tokenParam)
+  }, [searchParams])
 
   const handleUnsubscribe = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
+    if (!token) {
+      setError('Invalid unsubscribe link. Please use the link from your digest email.')
+      setLoading(false)
+      return
+    }
+
     try {
       const response = await fetch('/api/user/unsubscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, token }),
       })
 
       if (!response.ok) {
@@ -65,7 +81,7 @@ export default function UnsubscribePage() {
             Unsubscribe from digests
           </h1>
           <p className="text-gray-600">
-            Enter your email to stop receiving daily digest emails.
+            Confirm your email to stop receiving daily digest emails.
           </p>
         </div>
 
@@ -87,18 +103,25 @@ export default function UnsubscribePage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-instagram-pink focus:border-transparent"
+                readOnly={!!searchParams.get('email')}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-instagram-pink focus:border-transparent disabled:bg-gray-100"
                 placeholder="you@example.com"
               />
             </div>
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !token}
               className="w-full bg-gray-900 text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Processing...' : 'Unsubscribe'}
             </button>
+
+            {!token && (
+              <p className="text-sm text-gray-500 text-center">
+                Please use the unsubscribe link from your digest email.
+              </p>
+            )}
           </form>
         </div>
 

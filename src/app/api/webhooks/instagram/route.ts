@@ -183,6 +183,22 @@ async function handleMessage(event: any) {
 
   console.log(`👤 Found existing user: ${user.id}, onboarding_state: ${user.onboarding_state}`)
 
+  // Allow "start over" / "restart" from any onboarding state
+  const textLower = (message.text || '').trim().toLowerCase()
+  if (textLower === 'start over' || textLower === 'restart') {
+    console.log(`User ${user.id} requested onboarding restart`)
+    await supabaseAdmin
+      .from('users')
+      .update({ onboarding_state: 'awaiting_email' })
+      .eq('id', user.id)
+    const sent = await sendInstagramMessage(
+      senderId,
+      "No problem! Let's start fresh. What's your email address?"
+    )
+    if (!sent) console.error(`Failed to send restart message to ${senderId}`)
+    return
+  }
+
   // Route based on onboarding state
   switch (user.onboarding_state) {
     case 'awaiting_email':
@@ -355,7 +371,7 @@ async function handleEmailResponse(userId: string, instagramUserId: string, text
     console.log(`Invalid email format: ${email}`)
     const sent = await sendInstagramMessage(
       instagramUserId,
-      "That doesn't look like a valid email address. Please send your email address (e.g., you@example.com)"
+      "That doesn't look like a valid email address. Please send your email address (e.g., you@example.com).\n\nSend \"start over\" to restart setup."
     )
     if (!sent) console.error(`Failed to send invalid email message to ${instagramUserId}`)
     return
@@ -420,7 +436,7 @@ async function handleTimeResponse(userId: string, instagramUserId: string, text:
     console.log(`Could not parse time: ${text}`)
     const sent = await sendInstagramMessage(
       instagramUserId,
-      "I couldn't understand that time. Please try again (e.g., 8:00 AM, 7 PM, 18:00)"
+      "I couldn't understand that time. Please try again (e.g., 8:00 AM, 7 PM, 18:00).\n\nSend \"start over\" to restart setup."
     )
     if (!sent) console.error(`Failed to send invalid time message to ${instagramUserId}`)
     return
@@ -490,7 +506,7 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
     if (text === 'help') {
       const sent = await sendInstagramMessage(
         instagramUserId,
-        "📬 urdigest Help:\n• Share Instagram posts with me to add them to your digest\n• Send \"status\" to check your digest info\n• Send \"pause\" to pause digests\n• Send \"resume\" to resume digests"
+        "📬 urdigest Help:\n• Share Instagram posts with me to add them to your digest\n• Send \"status\" to check your digest info\n• Send \"pause\" to pause digests\n• Send \"resume\" to resume digests\n• Send \"start over\" to redo setup"
       )
       if (!sent) console.error(`Failed to send help message to ${instagramUserId}`)
       return
