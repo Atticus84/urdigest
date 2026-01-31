@@ -10,13 +10,14 @@ type LoginStep = 'email' | 'password' | 'set-password'
 export default function LoginPage() {
   const router = useRouter()
   const [step, setStep] = useState<LoginStep>('email')
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('') // Can be email or Instagram username
+  const [email, setEmail] = useState('') // Actual email for login
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
+  const handleIdentifierSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
@@ -26,16 +27,19 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/check-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ identifier }),
       })
 
       const data = await response.json()
 
       if (!data.exists) {
-        setError('No account found with this email. Please sign up first.')
+        setError(data.error || 'No account found. Please sign up first.')
         setLoading(false)
         return
       }
+
+      // Store the actual email for login (from the response)
+      setEmail(data.email)
 
       if (data.needsPasswordSetup) {
         // User exists but needs to set password
@@ -165,7 +169,7 @@ export default function LoginPage() {
         {/* Login Form */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
           {step === 'email' && (
-            <form onSubmit={handleEmailSubmit} className="space-y-6">
+            <form onSubmit={handleIdentifierSubmit} className="space-y-6">
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
                   {error}
@@ -173,18 +177,21 @@ export default function LoginPage() {
               )}
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
+                <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email or Instagram Username
                 </label>
                 <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="identifier"
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-instagram-pink focus:border-transparent"
-                  placeholder="you@example.com"
+                  placeholder="you@example.com or @username"
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  Enter your email address or Instagram username (with or without @)
+                </p>
               </div>
 
               <button
@@ -213,12 +220,13 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => {
                     setStep('email')
+                    setIdentifier('')
                     setPassword('')
                     setError('')
                   }}
                   className="text-sm text-instagram-pink hover:underline mt-1"
                 >
-                  Change email
+                  Change email/username
                 </button>
               </div>
 
@@ -272,7 +280,7 @@ export default function LoginPage() {
 
               <div className="bg-gray-50 rounded-lg p-3 mb-4">
                 <p className="text-sm text-gray-700">
-                  <span className="font-medium">Email:</span> {email}
+                  <span className="font-medium">Account:</span> {identifier || email}
                 </p>
               </div>
 
