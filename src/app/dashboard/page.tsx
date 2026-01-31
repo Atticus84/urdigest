@@ -79,8 +79,8 @@ export default function DashboardPage() {
       
       // Reload data to reflect changes
       await loadData()
-    } catch (error: any) {
-      alert(error.message || 'Failed to send digest')
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : 'Failed to send digest')
     } finally {
       setSendingDigest(false)
     }

@@ -27,8 +27,8 @@ export default function UnsubscribePage() {
       }
 
       setSubmitted(true)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to unsubscribe')
     } finally {
       setLoading(false)
     }

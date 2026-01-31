@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       .single()
 
     // Update the user's password AND email (in case auth email is still placeholder)
-    const updateData: any = { password }
+    const updateData: { password: string; email?: string } = { password }
     if (userData?.email) {
       updateData.email = userData.email
     }

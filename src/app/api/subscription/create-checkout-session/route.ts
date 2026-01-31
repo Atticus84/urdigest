@@ -6,7 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: '2024-12-18.acacia' as any,
+    apiVersion: '2023-10-16',
   })
 }
 
