@@ -28,6 +28,8 @@ For each post, provide:
 2. A 2-3 sentence summary highlighting key insights or what makes this content valuable
 3. Up to 3 relevant tags
 
+Posts can be photos, videos, reels, or carousels. For video/reel posts, focus on what the video content is likely about based on the caption and author context. If the caption is missing, use the URL and author to infer the topic and still provide a useful summary.
+
 Be conversational, enthusiastic, and helpful. Focus on actionable insights.`
 
   const userPrompt = `

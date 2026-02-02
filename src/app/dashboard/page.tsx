@@ -225,7 +225,9 @@ export default function DashboardPage() {
                   />
                 ) : (
                   <div className="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <span className="text-gray-400 text-2xl">📷</span>
+                    <span className="text-gray-400 text-2xl">
+                      {post.post_type === 'reel' ? '🎬' : post.post_type === 'video' ? '🎥' : '📷'}
+                    </span>
                   </div>
                 )}
                 {post.author_username && (
@@ -272,12 +274,30 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {posts.map((post) => (
             <div key={post.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition">
-              {post.thumbnail_url && (
-                <img
-                  src={post.thumbnail_url}
-                  alt={post.caption || 'Instagram post'}
-                  className="w-full h-48 object-cover"
-                />
+              {post.thumbnail_url ? (
+                <div className="relative">
+                  <img
+                    src={post.thumbnail_url}
+                    alt={post.caption || 'Instagram post'}
+                    className="w-full h-48 object-cover"
+                  />
+                  {(post.post_type === 'video' || post.post_type === 'reel') && (
+                    <span className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                      {post.post_type === 'reel' ? 'Reel' : 'Video'}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="w-full h-48 bg-gray-100 flex items-center justify-center relative">
+                  <span className="text-gray-400 text-4xl">
+                    {post.post_type === 'reel' ? '🎬' : post.post_type === 'video' ? '🎥' : '📷'}
+                  </span>
+                  {post.post_type && post.post_type !== 'photo' && (
+                    <span className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded capitalize">
+                      {post.post_type}
+                    </span>
+                  )}
+                </div>
               )}
               <div className="p-4">
                 {post.author_username && (
