@@ -372,12 +372,16 @@ async function handleNewUser(instagramUserId: string, instagramUsername?: string
 
     if (existingProfileById) {
       console.log(`✅ User profile already exists with this ID, updating...`)
-      const { error: updateError } = await supabaseAdmin
-        .from('users')
-        .update({
+      const updateData: any = {
           instagram_user_id: instagramUserId,
           onboarding_state: 'awaiting_email',
-        })
+        }
+      if (instagramUsername) {
+        updateData.instagram_username = instagramUsername
+      }
+      const { error: updateError } = await supabaseAdmin
+        .from('users')
+        .update(updateData)
         .eq('id', newUserId)
 
       if (updateError) {

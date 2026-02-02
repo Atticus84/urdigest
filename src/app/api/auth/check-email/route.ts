@@ -35,11 +35,11 @@ export async function POST(request: Request) {
       user = result.data
       error = result.error
     } else {
-      // Search by Instagram username
+      // Search by Instagram username (case-insensitive)
       const result = await supabaseAdmin
         .from('users')
         .select('id, email, instagram_username, instagram_user_id, password_set_at')
-        .eq('instagram_username', cleanIdentifier)
+        .ilike('instagram_username', cleanIdentifier)
         .single()
       
       user = result.data
