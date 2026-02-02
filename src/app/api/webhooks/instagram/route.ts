@@ -551,11 +551,16 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
   // Check for shared media (Instagram post shared via DM)
   if (message.attachments) {
     let savedCount = 0
+    let duplicateCount = 0
+    let hasShareAttachments = false
     for (const attachment of message.attachments) {
-      console.log(`Processing attachment:`, { type: attachment.type })
-      if (attachment.type === 'media_share' || attachment.type === 'share') {
-        const saved = await saveInstagramPost(userId, attachment.payload)
-        if (saved) savedCount++
+      console.log(`Processing attachment:`, { type: attachment.type, payload: JSON.stringify(attachment.payload)?.substring(0, 200) })
+      // Accept various attachment types that contain shared Instagram content
+      if (['media_share', 'share', 'ig_reel', 'link', 'video', 'image', 'animated_image_share'].includes(attachment.type)) {
+        hasShareAttachments = true
+        const result = await saveInstagramPost(userId, attachment.payload)
+        if (result === 'saved') savedCount++
+        else if (result === 'duplicate') duplicateCount++
       }
     }
 
@@ -568,6 +573,25 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
           : `✅ Added ${savedCount} posts to your next digest!`
       )
       if (!sent) console.error(`Failed to send confirmation message to ${instagramUserId}`)
+      return
+    }
+
+    if (duplicateCount > 0) {
+      const sent = await sendInstagramMessage(
+        instagramUserId,
+        "You've already saved this post! It's in your next digest."
+      )
+      if (!sent) console.error(`Failed to send duplicate message to ${instagramUserId}`)
+      return
+    }
+
+    if (hasShareAttachments) {
+      // Had share-like attachments but couldn't extract a URL
+      const sent = await sendInstagramMessage(
+        instagramUserId,
+        "I couldn't save that post. Try sharing it using the share button on the post itself."
+      )
+      if (!sent) console.error(`Failed to send share error message to ${instagramUserId}`)
       return
     }
   }
@@ -627,14 +651,14 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
   }
 }
 
-async function saveInstagramPost(userId: string, payload: any): Promise<boolean> {
+async function saveInstagramPost(userId: string, payload: any): Promise<'saved' | 'duplicate' | 'error'> {
   try {
     const postUrl = payload?.url || ''
     const postId = postUrl.match(/\/p\/([^\/]+)/)?.[1] || postUrl.match(/\/reel\/([^\/]+)/)?.[1]
 
     if (!postUrl) {
-      console.error('No URL in shared post payload')
-      return false
+      console.error('No URL in shared post payload:', JSON.stringify(payload)?.substring(0, 300))
+      return 'error'
     }
 
     // Check for duplicate
@@ -647,7 +671,8 @@ async function saveInstagramPost(userId: string, payload: any): Promise<boolean>
         .single()
 
       if (existing) {
-        return false // Already saved
+        console.log(`Duplicate post detected for user ${userId}: ${postId}`)
+        return 'duplicate'
       }
     }
 
@@ -675,9 +700,9 @@ async function saveInstagramPost(userId: string, payload: any): Promise<boolean>
       .eq('id', userId)
 
     console.log(`Saved post for user ${userId}: ${postUrl}`)
-    return true
+    return 'saved'
   } catch (error) {
     console.error('Error saving Instagram post:', error)
-    return false
+    return 'error'
   }
 }

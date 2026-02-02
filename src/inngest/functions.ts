@@ -45,17 +45,22 @@ export const dailyDigest = inngest.createFunction(
   }
 )
 
-async function generateDigestForUser(user: any) {
-  // Get unprocessed posts from the last 24 hours
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-
-  const { data: posts, error } = await supabaseAdmin
+async function generateDigestForUser(user: any, manual: boolean = false) {
+  // Get unprocessed posts
+  // For manual sends, get ALL unprocessed posts (no time filter)
+  // For daily cron, only get posts from the last 24 hours
+  let query = supabaseAdmin
     .from('saved_posts')
     .select('*')
     .eq('user_id', user.id)
     .eq('processed', false)
-    .gte('saved_at', yesterday)
-    .order('saved_at', { ascending: false })
+
+  if (!manual) {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    query = query.gte('saved_at', yesterday)
+  }
+
+  const { data: posts, error } = await query.order('saved_at', { ascending: false })
 
   if (error) {
     throw new Error(`Failed to fetch posts: ${error.message}`)
@@ -168,6 +173,6 @@ export const manualDigest = inngest.createFunction(
       throw new Error('User not found')
     }
 
-    return await generateDigestForUser(user)
+    return await generateDigestForUser(user, true)
   }
 )
