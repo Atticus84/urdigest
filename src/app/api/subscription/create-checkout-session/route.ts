@@ -22,11 +22,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Debug: log key prefix to verify it's loading correctly
-    const keyPrefix = process.env.STRIPE_SECRET_KEY.substring(0, 12)
-    const keyLength = process.env.STRIPE_SECRET_KEY.length
-    console.log(`Stripe key loaded: ${keyPrefix}... (${keyLength} chars)`)
-
     if (!process.env.STRIPE_PRICE_ID) {
       console.error('STRIPE_PRICE_ID is not configured')
       return NextResponse.json(

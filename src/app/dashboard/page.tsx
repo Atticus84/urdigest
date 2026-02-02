@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ensureUserProfile } from '@/lib/supabase/ensure-profile'
 import type { SavedPost, User } from '@/types/database'
@@ -11,9 +12,24 @@ export default function DashboardPage() {
   const [pendingPosts, setPendingPosts] = useState<SavedPost[]>([])
   const [loading, setLoading] = useState(true)
   const [sendingDigest, setSendingDigest] = useState(false)
+  const searchParams = useSearchParams()
 
   useEffect(() => {
-    loadData()
+    const sessionId = searchParams.get('session_id')
+    if (sessionId) {
+      // Verify the Stripe checkout session and activate subscription
+      fetch('/api/subscription/verify-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId }),
+      }).then(() => loadData())
+        .catch(() => loadData())
+
+      // Clean up the URL
+      window.history.replaceState({}, '', '/dashboard')
+    } else {
+      loadData()
+    }
   }, [])
 
   const loadData = async () => {
