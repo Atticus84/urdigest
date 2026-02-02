@@ -47,7 +47,8 @@ export default function SubscriptionPage() {
       }
 
       if (data.checkout_url) {
-        window.location.href = data.checkout_url
+        // Use assign for more reliable redirect to Stripe
+        window.location.assign(data.checkout_url)
       } else {
         setError('No checkout URL was returned. Please try again.')
         setProcessingCheckout(false)
