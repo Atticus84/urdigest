@@ -10,6 +10,7 @@ export default function SubscriptionPage() {
   const [loading, setLoading] = useState(true)
   const [processingCheckout, setProcessingCheckout] = useState(false)
   const [processingPortal, setProcessingPortal] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadUser()
@@ -29,21 +30,32 @@ export default function SubscriptionPage() {
 
   const handleUpgrade = async () => {
     setProcessingCheckout(true)
+    setError(null)
 
     try {
       const response = await fetch('/api/subscription/create-checkout-session', {
         method: 'POST',
+        credentials: 'same-origin',
       })
 
       const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || 'Failed to create checkout session')
+        setProcessingCheckout(false)
+        return
+      }
+
       if (data.checkout_url) {
-        window.location.href = data.checkout_url
+        // Use assign for more reliable redirect to Stripe
+        window.location.assign(data.checkout_url)
       } else {
-        console.error('No checkout URL returned:', data)
+        setError('No checkout URL was returned. Please try again.')
         setProcessingCheckout(false)
       }
-    } catch (error) {
-      console.error('Failed to create checkout session:', error)
+    } catch (err) {
+      console.error('Failed to create checkout session:', err)
+      setError('Something went wrong. Please try again.')
       setProcessingCheckout(false)
     }
   }
@@ -160,6 +172,12 @@ export default function SubscriptionPage() {
         </div>
 
         <div className="mt-6 pt-6 border-t">
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {error}
+            </div>
+          )}
+
           {(isTrial || isCanceled) && (
             <button
               onClick={handleUpgrade}
