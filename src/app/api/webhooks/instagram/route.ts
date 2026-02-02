@@ -570,6 +570,16 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
       if (!sent) console.error(`Failed to send confirmation message to ${instagramUserId}`)
       return
     }
+
+    // Attachments were present but nothing new was saved (e.g. duplicates or unsupported types)
+    if (message.attachments.length > 0) {
+      const sent = await sendInstagramMessage(
+        instagramUserId,
+        "👀 Looks like you already saved that post! It's in your next digest."
+      )
+      if (!sent) console.error(`Failed to send duplicate confirmation to ${instagramUserId}`)
+      return
+    }
   }
 
   // If it's a text message (not a shared post), provide help
