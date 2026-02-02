@@ -14,45 +14,71 @@ export interface PostSummary {
   tags: string[]
 }
 
-export async function summarizePosts(
+export interface NewsletterSection {
+  emoji: string
+  headline: string
+  body: string
+  instagram_url: string
+  author_username: string | null
+}
+
+export interface NewsletterContent {
+  subject_line: string
+  greeting: string
+  sections: NewsletterSection[]
+  big_picture: string
+}
+
+export async function generateNewsletter(
   posts: SavedPost[]
 ): Promise<{
-  summaries: PostSummary[]
+  newsletter: NewsletterContent
   tokensUsed: number
   cost: number
 }> {
-  const systemPrompt = `You are an AI assistant that summarizes Instagram posts into concise, engaging summaries for email digests.
+  const systemPrompt = `You are a witty, sharp newsletter editor writing a daily digest email in the style of Morning Brew. Your job is to transform saved Instagram posts into an engaging, editorial newsletter that people actually want to read.
 
-For each post, provide:
-1. A catchy one-line title (10-15 words)
-2. A 2-3 sentence summary highlighting key insights or what makes this content valuable
-3. Up to 3 relevant tags
-
-Be conversational, enthusiastic, and helpful. Focus on actionable insights.`
+Rules:
+- Write in a conversational, clever tone. Be informative but not dry.
+- Each section covers one post (or groups closely related posts together).
+- Bold key phrases using <b> tags for skimmability.
+- Taper section lengths — start longer (~80-100 words), end shorter (~40-60 words) to accelerate reading.
+- If a post has no caption or very little info, keep it brief and curiosity-driven ("This caught your eye — tap through to see why").
+- The greeting should be one punchy line. No "Dear reader" energy.
+- The big_picture is a 2-3 sentence closing thought that ties themes together or leaves the reader with something to think about.
+- The subject_line should be catchy and reference the most interesting post topic (max 60 chars).
+- Use exactly one emoji per section that fits the content.
+- Do NOT use markdown. Use <b> tags for bold only.`
 
   const userPrompt = `
-Summarize these ${posts.length} Instagram posts for today's digest:
+Write a Morning Brew-style newsletter from these ${posts.length} saved Instagram posts:
 
 ${posts.map((post, i) => `
 POST ${i}:
 URL: ${post.instagram_url}
 Author: ${post.author_username ? `@${post.author_username}` : 'Unknown'}
-Caption: ${post.caption || 'No caption'}
+Caption: ${post.caption || 'No caption available'}
 Type: ${post.post_type || 'photo'}
 ---
 `).join('\n')}
 
-Return a JSON array with this exact structure:
-[
-  {
-    "post_index": 0,
-    "title": "One-line catchy summary",
-    "summary": "2-3 sentences about what makes this post valuable",
-    "tags": ["tag1", "tag2", "tag3"]
-  }
-]
+Return a JSON object with this exact structure:
+{
+  "subject_line": "Catchy email subject (max 60 chars)",
+  "greeting": "One punchy opening line",
+  "sections": [
+    {
+      "emoji": "🔥",
+      "headline": "BOLD SECTION HEADLINE",
+      "body": "60-100 word editorial write-up with <b>bold key phrases</b>. Conversational, insightful, skimmable.",
+      "instagram_url": "https://instagram.com/...",
+      "author_username": "username"
+    }
+  ],
+  "big_picture": "2-3 sentence closing thought tying things together."
+}
 
-IMPORTANT: Return ONLY the JSON array, no other text.
+IMPORTANT: Return ONLY valid JSON. One section per post (or group very related posts). Sections array must cover ALL posts.
 `
 
   try {
@@ -62,48 +88,79 @@ IMPORTANT: Return ONLY the JSON array, no other text.
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      temperature: 0.7,
+      temperature: 0.8,
       response_format: { type: 'json_object' },
     })
 
     const response = completion.choices[0].message.content
     const tokensUsed = completion.usage?.total_tokens || 0
 
-    // Calculate cost (GPT-4o-mini pricing as of Jan 2026)
     const inputTokens = completion.usage?.prompt_tokens || 0
     const outputTokens = completion.usage?.completion_tokens || 0
     const cost = (inputTokens * 0.00015 / 1000) + (outputTokens * 0.0006 / 1000)
 
-    // Parse response
-    let parsedResponse: any
+    let parsed: any
     try {
-      parsedResponse = JSON.parse(response || '{}')
+      parsed = JSON.parse(response || '{}')
     } catch {
       throw new Error('Failed to parse OpenAI response as JSON')
     }
 
-    // Handle both array and object with array responses
-    const summaries = Array.isArray(parsedResponse)
-      ? parsedResponse
-      : parsedResponse.summaries || []
-
-    // Validate summaries
-    if (!Array.isArray(summaries) || summaries.length !== posts.length) {
-      throw new Error(`Expected ${posts.length} summaries, got ${summaries.length}`)
+    const newsletter: NewsletterContent = {
+      subject_line: parsed.subject_line || `Your daily urdigest: ${posts.length} posts`,
+      greeting: parsed.greeting || "Here's what you saved today.",
+      sections: parsed.sections || [],
+      big_picture: parsed.big_picture || '',
     }
 
-    return {
-      summaries,
-      tokensUsed,
-      cost,
+    if (!newsletter.sections.length) {
+      throw new Error('AI returned no sections')
     }
+
+    return { newsletter, tokensUsed, cost }
   } catch (error) {
-    console.error('OpenAI summarization error:', error)
+    console.error('OpenAI newsletter generation error:', error)
     throw error
   }
 }
 
-// Fallback: Generate simple summaries without AI
+export function generateFallbackNewsletter(posts: SavedPost[]): NewsletterContent {
+  return {
+    subject_line: `Your daily urdigest: ${posts.length} posts`,
+    greeting: "Here's what you saved today.",
+    sections: posts.map((post) => ({
+      emoji: '📌',
+      headline: post.caption
+        ? post.caption.slice(0, 60) + (post.caption.length > 60 ? '...' : '')
+        : `Post by @${post.author_username || 'unknown'}`,
+      body: post.caption || 'No caption available for this post.',
+      instagram_url: post.instagram_url,
+      author_username: post.author_username,
+    })),
+    big_picture: '',
+  }
+}
+
+// Keep legacy exports for backwards compatibility if needed elsewhere
+export async function summarizePosts(
+  posts: SavedPost[]
+): Promise<{
+  summaries: PostSummary[]
+  tokensUsed: number
+  cost: number
+}> {
+  const { newsletter, tokensUsed, cost } = await generateNewsletter(posts)
+
+  const summaries: PostSummary[] = newsletter.sections.map((section, index) => ({
+    post_index: index,
+    title: section.headline,
+    summary: section.body,
+    tags: [],
+  }))
+
+  return { summaries, tokensUsed, cost }
+}
+
 export function generateFallbackSummaries(posts: SavedPost[]): PostSummary[] {
   return posts.map((post, index) => ({
     post_index: index,

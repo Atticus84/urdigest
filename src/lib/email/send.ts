@@ -1,5 +1,6 @@
 import { Resend } from 'resend'
 import { DigestEmail } from '@/emails/digest'
+import { NewsletterContent } from '@/lib/ai/summarize'
 
 let _resend: Resend | null = null
 function getResend() {
@@ -7,27 +8,19 @@ function getResend() {
   return _resend
 }
 
-export interface EmailPost {
-  id: string
-  title: string
-  summary: string
-  instagram_url: string
-  thumbnail_url: string | null
-  author_username: string | null
-}
-
 export async function sendDigestEmail(
   to: string,
-  posts: EmailPost[],
-  date: string
+  newsletter: NewsletterContent,
+  date: string,
+  postCount: number
 ): Promise<string> {
   try {
-    const subject = `☀️ Your daily urdigest: ${posts.length} ${posts.length === 1 ? 'post' : 'posts'} you saved`
+    const subject = `☀️ ${newsletter.subject_line}`
 
     const html = DigestEmail({
-      posts,
-      userEmail: to,
+      newsletter,
       date,
+      postCount,
     })
 
     const { data, error } = await getResend().emails.send({
