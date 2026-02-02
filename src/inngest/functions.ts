@@ -90,28 +90,53 @@ async function generateDigestForUser(user: any) {
 
   const dateStr = format(new Date(), 'MMMM d, yyyy')
 
-  // Get additional recipients
+  // Get additional recipients (legacy)
   const { data: recipients } = await supabaseAdmin
     .from('digest_recipients')
     .select('email')
     .eq('user_id', user.id)
     .eq('confirmed', true)
 
-  // Build list of all email addresses (user + recipients)
-  const allEmails = [user.email]
+  // Get followers
+  const { data: followers } = await supabaseAdmin
+    .from('digest_followers')
+    .select('email, unsubscribe_token')
+    .eq('user_id', user.id)
+    .eq('confirmed', true)
+    .is('unsubscribed_at', null)
+
+  const digestName = user.digest_name || `${user.instagram_username || user.email}'s digest`
+
+  // Send to owner
+  const ownerEmailId = await sendDigestEmail(user.email, newsletter, dateStr, posts.length)
+
+  // Send to legacy recipients
+  const legacyEmails = new Set<string>([user.email])
   if (recipients && recipients.length > 0) {
     for (const r of recipients) {
-      if (!allEmails.includes(r.email)) {
-        allEmails.push(r.email)
+      if (!legacyEmails.has(r.email)) {
+        legacyEmails.add(r.email)
+        await sendDigestEmail(r.email, newsletter, dateStr, posts.length)
       }
     }
   }
 
-  // Send email to all recipients
-  let resendEmailId = ''
-  for (const email of allEmails) {
-    const id = await sendDigestEmail(email, newsletter, dateStr, posts.length)
-    if (!resendEmailId) resendEmailId = id
+  // Send to followers with follower context
+  let followersSentCount = 0
+  if (followers && followers.length > 0) {
+    for (const f of followers) {
+      if (legacyEmails.has(f.email)) continue
+      try {
+        await sendDigestEmail(f.email, newsletter, dateStr, posts.length, {
+          unsubscribeToken: f.unsubscribe_token,
+          creatorName: digestName,
+          followSlug: user.follow_slug || null,
+        })
+        followersSentCount++
+      } catch (err) {
+        console.error(`Failed to send to follower ${f.email}:`, err)
+      }
+    }
   }
 
   // Save digest record
@@ -123,7 +148,8 @@ async function generateDigestForUser(user: any) {
     post_count: posts.length,
     ai_tokens_used: tokensUsed,
     ai_cost_usd: aiCost.toString(),
-    resend_email_id: resendEmailId,
+    resend_email_id: ownerEmailId,
+    sent_to_followers_count: followersSentCount,
   })
 
   // Mark posts as processed
