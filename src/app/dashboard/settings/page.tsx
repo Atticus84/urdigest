@@ -72,7 +72,7 @@ export default function SettingsPage() {
 
       const updatedUser = await response.json()
       setUser(updatedUser)
-      setMessage('Settings saved successfully!')
+      setMessage('Settings saved.')
       setTimeout(() => setMessage(''), 3000)
     } catch (error) {
       setMessage('Failed to save settings')
@@ -83,29 +83,30 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-instagram-pink mx-auto mb-4"></div>
-        <p className="text-gray-600">Loading settings...</p>
+      <div className="text-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+        <p className="text-gray-400 text-sm">Loading settings...</p>
       </div>
     )
   }
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
-      <p className="text-gray-600 mb-8">Manage your digest preferences</p>
+    <div className="max-w-xl mx-auto">
+      <h1 className="text-2xl font-semibold text-gray-900 mb-1">Settings</h1>
+      <p className="text-gray-400 text-sm mb-10">Manage your digest preferences</p>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <form onSubmit={saveSettings} className="space-y-6">
+      <form onSubmit={saveSettings} className="space-y-8">
+        {/* Digest Preferences */}
+        <section>
+          <h2 className="text-sm font-medium text-gray-900 uppercase tracking-wide mb-6">
+            Digest Preferences
+          </h2>
+
           {/* Digest Enabled */}
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <label className="font-semibold text-gray-900 block mb-1">
-                Daily Digests
-              </label>
-              <p className="text-sm text-gray-600">
-                Receive email digests every morning
-              </p>
+          <div className="flex items-center justify-between py-4 border-b border-gray-50">
+            <div>
+              <p className="text-sm font-medium text-gray-900">Daily Digests</p>
+              <p className="text-xs text-gray-400 mt-0.5">Receive email digests on schedule</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -114,40 +115,30 @@ export default function SettingsPage() {
                 onChange={(e) => setDigestEnabled(e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-instagram-pink/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-instagram-pink"></div>
+              <div className="w-10 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-900"></div>
             </label>
           </div>
 
-          <hr />
-
           {/* Digest Time */}
-          <div>
-            <label className="font-semibold text-gray-900 block mb-2">
-              Digest Time
-            </label>
-            <p className="text-sm text-gray-600 mb-3">
-              What time should we send your daily digest?
-            </p>
+          <div className="py-4 border-b border-gray-50">
+            <p className="text-sm font-medium text-gray-900 mb-1">Send time</p>
+            <p className="text-xs text-gray-400 mb-3">When should we send your digest?</p>
             <input
               type="time"
               value={digestTime.substring(0, 5)}
               onChange={(e) => setDigestTime(e.target.value + ':00')}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-instagram-pink focus:border-transparent"
+              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
             />
           </div>
 
           {/* Timezone */}
-          <div>
-            <label className="font-semibold text-gray-900 block mb-2">
-              Timezone
-            </label>
-            <p className="text-sm text-gray-600 mb-3">
-              Your local timezone
-            </p>
+          <div className="py-4">
+            <p className="text-sm font-medium text-gray-900 mb-1">Timezone</p>
+            <p className="text-xs text-gray-400 mb-3">Your local timezone</p>
             <select
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-instagram-pink focus:border-transparent"
+              className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
             >
               {TIMEZONES.map((tz) => (
                 <option key={tz.value} value={tz.value}>
@@ -156,53 +147,37 @@ export default function SettingsPage() {
               ))}
             </select>
           </div>
+        </section>
 
-          {/* Status Message */}
-          {message && (
-            <div className={`px-4 py-3 rounded-lg text-sm ${
-              message.includes('Failed')
-                ? 'bg-red-50 border border-red-200 text-red-700'
-                : 'bg-green-50 border border-green-200 text-green-700'
-            }`}>
-              {message}
-            </div>
-          )}
+        {/* Email */}
+        <section>
+          <h2 className="text-sm font-medium text-gray-900 uppercase tracking-wide mb-6">
+            Email
+          </h2>
+          <div className="py-4 border-b border-gray-50">
+            <p className="text-sm font-medium text-gray-900 mb-1">Email address</p>
+            <p className="text-sm text-gray-500">{user?.email}</p>
+          </div>
+        </section>
 
-          {/* Save Button */}
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full bg-instagram-pink text-white py-3 rounded-lg font-semibold hover:bg-instagram-pink/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? 'Saving...' : 'Save Settings'}
-          </button>
-        </form>
-      </div>
+        {/* Status Message */}
+        {message && (
+          <div className={`text-sm ${
+            message.includes('Failed') ? 'text-red-600' : 'text-gray-500'
+          }`}>
+            {message}
+          </div>
+        )}
 
-      {/* Account Info */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mt-6">
-        <h2 className="font-semibold text-gray-900 mb-4">Account Information</h2>
-        <div className="space-y-3 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Email</span>
-            <span className="font-medium">{user?.email}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Member since</span>
-            <span className="font-medium">
-              {new Date(user?.created_at!).toLocaleDateString()}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Total posts saved</span>
-            <span className="font-medium">{user?.total_posts_saved}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Digests sent</span>
-            <span className="font-medium">{user?.total_digests_sent}</span>
-          </div>
-        </div>
-      </div>
+        {/* Save Button */}
+        <button
+          type="submit"
+          disabled={saving}
+          className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? 'Saving...' : 'Save Settings'}
+        </button>
+      </form>
     </div>
   )
 }
