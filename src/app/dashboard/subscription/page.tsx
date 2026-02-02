@@ -10,7 +10,6 @@ export default function SubscriptionPage() {
   const [loading, setLoading] = useState(true)
   const [processingCheckout, setProcessingCheckout] = useState(false)
   const [processingPortal, setProcessingPortal] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadUser()
@@ -30,32 +29,20 @@ export default function SubscriptionPage() {
 
   const handleUpgrade = async () => {
     setProcessingCheckout(true)
-    setError(null)
 
     try {
       const response = await fetch('/api/subscription/create-checkout-session', {
         method: 'POST',
-        credentials: 'same-origin',
       })
 
       const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.error || 'Failed to create checkout session')
-        setProcessingCheckout(false)
-        return
-      }
-
       if (data.checkout_url) {
-        // Use assign for more reliable redirect to Stripe
-        window.location.assign(data.checkout_url)
+        window.location.href = data.checkout_url
       } else {
-        setError('No checkout URL was returned. Please try again.')
         setProcessingCheckout(false)
       }
-    } catch (err) {
-      console.error('Failed to create checkout session:', err)
-      setError('Something went wrong. Please try again.')
+    } catch (error) {
+      console.error('Failed to create checkout session:', error)
       setProcessingCheckout(false)
     }
   }
@@ -78,9 +65,9 @@ export default function SubscriptionPage() {
 
   if (loading) {
     return (
-      <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-instagram-pink mx-auto mb-4"></div>
-        <p className="text-gray-600">Loading subscription...</p>
+      <div className="text-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-instagram-pink mx-auto mb-4"></div>
+        <p className="text-gray-400 text-sm">Loading subscription...</p>
       </div>
     )
   }
@@ -91,157 +78,106 @@ export default function SubscriptionPage() {
   const isCanceled = user?.subscription_status === 'canceled'
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Subscription</h1>
-      <p className="text-gray-600 mb-8">Manage your urdigest subscription</p>
+    <div className="max-w-xl mx-auto">
+      <h1 className="text-2xl font-semibold text-gray-900 mb-1">Subscription</h1>
+      <p className="text-gray-400 text-sm mb-10">Manage your plan</p>
 
-      {/* Current Status */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <h2 className="font-semibold text-gray-900 mb-4">Current Plan</h2>
-
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            {isTrial && !user?.trial_digest_sent && (
-              <>
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-3">
-                  <span>🎉</span>
-                  <span>Trial Active</span>
-                </div>
-                <p className="text-gray-600 mb-4">
-                  You're on the free trial. Your first digest is free!
-                </p>
-              </>
-            )}
-
-            {isTrial && user?.trial_digest_sent && (
-              <>
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-medium mb-3">
-                  <span>⏰</span>
-                  <span>Trial Ended</span>
-                </div>
-                <p className="text-gray-600 mb-4">
-                  Your trial has ended. Upgrade to continue receiving digests.
-                </p>
-              </>
-            )}
-
-            {isActive && (
-              <>
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium mb-3">
-                  <span>✓</span>
-                  <span>Premium Active</span>
-                </div>
-                <p className="text-gray-600 mb-2">
-                  You're subscribed to urdigest Premium.
-                </p>
-                <p className="text-sm text-gray-500">
-                  Billing: $5.00/month
-                  {user.subscription_ends_at && (
-                    <> • Renews {new Date(user.subscription_ends_at).toLocaleDateString()}</>
-                  )}
-                </p>
-              </>
-            )}
-
-            {isPastDue && (
-              <>
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium mb-3">
-                  <span>⚠️</span>
-                  <span>Payment Failed</span>
-                </div>
-                <p className="text-gray-600 mb-4">
-                  Your last payment failed. Please update your payment method to continue.
-                </p>
-              </>
-            )}
-
-            {isCanceled && (
-              <>
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium mb-3">
-                  <span>Canceled</span>
-                </div>
-                <p className="text-gray-600 mb-4">
-                  Your subscription has been canceled.
-                  {user.subscription_ends_at && (
-                    <> Access until {new Date(user.subscription_ends_at).toLocaleDateString()}.</>
-                  )}
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-6 pt-6 border-t">
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              {error}
-            </div>
+      {/* Current Plan */}
+      <div className="bg-white border border-gray-100 rounded-xl p-6 mb-6">
+        <div className="mb-6">
+          {isActive && (
+            <>
+              <span className="inline-block text-xs font-medium text-instagram-purple bg-instagram-purple/10 px-2.5 py-1 rounded-full mb-3">
+                Active
+              </span>
+              <p className="text-sm text-gray-600 mb-1">
+                urdigest Premium
+              </p>
+              <p className="text-sm text-gray-400">
+                $5.00/month
+                {user.subscription_ends_at && (
+                  <> &middot; Renews {new Date(user.subscription_ends_at).toLocaleDateString()}</>
+                )}
+              </p>
+            </>
           )}
 
-          {(isTrial || isCanceled) && (
-            <button
-              onClick={handleUpgrade}
-              disabled={processingCheckout}
-              className="w-full bg-instagram-pink text-white py-3 rounded-lg font-semibold hover:bg-instagram-pink/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {processingCheckout ? 'Processing...' : 'Upgrade to Premium - $5/month'}
-            </button>
+          {isTrial && !user?.trial_digest_sent && (
+            <>
+              <span className="inline-block text-xs font-medium text-instagram-pink bg-instagram-pink/10 px-2.5 py-1 rounded-full mb-3">
+                Trial
+              </span>
+              <p className="text-sm text-gray-600">
+                Your first digest is free.
+              </p>
+            </>
           )}
 
-          {(isActive || isPastDue) && (
-            <button
-              onClick={handleManageSubscription}
-              disabled={processingPortal}
-              className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {processingPortal ? 'Loading...' : 'Manage Subscription'}
-            </button>
+          {isTrial && user?.trial_digest_sent && (
+            <>
+              <span className="inline-block text-xs font-medium text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full mb-3">
+                Trial ended
+              </span>
+              <p className="text-sm text-gray-600">
+                Upgrade to continue receiving digests.
+              </p>
+            </>
+          )}
+
+          {isPastDue && (
+            <>
+              <span className="inline-block text-xs font-medium text-instagram-pink bg-instagram-pink/10 px-2.5 py-1 rounded-full mb-3">
+                Payment failed
+              </span>
+              <p className="text-sm text-gray-600">
+                Please update your payment method.
+              </p>
+            </>
+          )}
+
+          {isCanceled && (
+            <>
+              <span className="inline-block text-xs font-medium text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full mb-3">
+                Canceled
+              </span>
+              <p className="text-sm text-gray-600">
+                Your subscription has been canceled.
+                {user.subscription_ends_at && (
+                  <> Access until {new Date(user.subscription_ends_at).toLocaleDateString()}.</>
+                )}
+              </p>
+            </>
           )}
         </div>
+
+        {(isTrial || isCanceled) && (
+          <button
+            onClick={handleUpgrade}
+            disabled={processingCheckout}
+            className="w-full bg-instagram-pink text-white py-2.5 rounded-lg text-sm font-medium hover:bg-instagram-pink/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {processingCheckout ? 'Processing...' : 'Upgrade to Premium - $5/month'}
+          </button>
+        )}
+
+        {(isActive || isPastDue) && (
+          <button
+            onClick={handleManageSubscription}
+            disabled={processingPortal}
+            className="w-full border border-gray-200 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {processingPortal ? 'Loading...' : 'Manage Billing'}
+          </button>
+        )}
       </div>
 
-      {/* Pricing Details */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="font-semibold text-gray-900 mb-4">What's Included</h2>
-        <ul className="space-y-3">
-          <li className="flex items-center gap-3">
-            <span className="text-green-500 text-xl">✓</span>
-            <span className="text-gray-700">Unlimited saved posts</span>
-          </li>
-          <li className="flex items-center gap-3">
-            <span className="text-green-500 text-xl">✓</span>
-            <span className="text-gray-700">AI-powered summaries</span>
-          </li>
-          <li className="flex items-center gap-3">
-            <span className="text-green-500 text-xl">✓</span>
-            <span className="text-gray-700">Daily email digests</span>
-          </li>
-          <li className="flex items-center gap-3">
-            <span className="text-green-500 text-xl">✓</span>
-            <span className="text-gray-700">Customizable digest time</span>
-          </li>
-          <li className="flex items-center gap-3">
-            <span className="text-green-500 text-xl">✓</span>
-            <span className="text-gray-700">Cancel anytime</span>
-          </li>
-        </ul>
-      </div>
-
-      {/* FAQ */}
-      <div className="mt-6 text-sm text-gray-600">
-        <p className="mb-2">
-          <strong>Questions?</strong> Email us at{' '}
-          <a href="mailto:archontechnologiesllc@gmail.com" className="text-instagram-pink hover:underline">
-            archontechnologiesllc@gmail.com
-          </a>
-        </p>
-        <p>
-          By subscribing, you agree to our{' '}
-          <a href="/terms" className="text-instagram-pink hover:underline">Terms of Service</a>
-          {' '}and{' '}
-          <a href="/privacy" className="text-instagram-pink hover:underline">Privacy Policy</a>.
-        </p>
-      </div>
+      {/* Footer */}
+      <p className="text-xs text-gray-300 text-center">
+        By subscribing, you agree to our{' '}
+        <a href="/terms" className="underline hover:text-gray-500">Terms</a>
+        {' '}and{' '}
+        <a href="/privacy" className="underline hover:text-gray-500">Privacy Policy</a>.
+      </p>
     </div>
   )
 }
