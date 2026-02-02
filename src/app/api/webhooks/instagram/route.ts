@@ -570,8 +570,15 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
     let savedCount = 0
     for (const attachment of message.attachments) {
       console.log(`Processing attachment:`, { type: attachment.type })
-      if (attachment.type === 'media_share' || attachment.type === 'share') {
-        const saved = await saveInstagramPost(userId, attachment.payload)
+      if (
+        attachment.type === 'media_share' ||
+        attachment.type === 'share' ||
+        attachment.type === 'video' ||
+        attachment.type === 'ig_reel' ||
+        attachment.type === 'animated_image_share' ||
+        attachment.type === 'clip'
+      ) {
+        const saved = await saveInstagramPost(userId, attachment.payload, attachment.type)
         if (saved) savedCount++
       }
     }
@@ -644,7 +651,56 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
   }
 }
 
-async function saveInstagramPost(userId: string, payload: any): Promise<boolean> {
+// Detect post type from URL pattern and attachment type
+function detectPostType(url: string, attachmentType?: string): string {
+  if (url.includes('/reel/') || url.includes('/reels/')) return 'reel'
+  if (attachmentType === 'video' || attachmentType === 'clip' || attachmentType === 'ig_reel') return 'video'
+  if (attachmentType === 'animated_image_share') return 'video'
+  if (url.includes('/p/')) return 'photo'
+  return 'photo'
+}
+
+// Fetch metadata from Instagram oEmbed API (no auth required)
+async function fetchInstagramMetadata(postUrl: string): Promise<{
+  title?: string
+  author_name?: string
+  thumbnail_url?: string
+} | null> {
+  try {
+    const oEmbedUrl = `https://graph.facebook.com/v18.0/instagram_oembed?url=${encodeURIComponent(postUrl)}&access_token=${process.env.INSTAGRAM_ACCESS_TOKEN || process.env.FACEBOOK_ACCESS_TOKEN || ''}`
+    const response = await fetch(oEmbedUrl, { signal: AbortSignal.timeout(5000) })
+
+    if (response.ok) {
+      const data = await response.json()
+      return {
+        title: data.title || undefined,
+        author_name: data.author_name || undefined,
+        thumbnail_url: data.thumbnail_url || undefined,
+      }
+    }
+
+    // Fallback: try the public oEmbed endpoint
+    const publicUrl = `https://api.instagram.com/oembed/?url=${encodeURIComponent(postUrl)}`
+    const publicResponse = await fetch(publicUrl, { signal: AbortSignal.timeout(5000) })
+
+    if (publicResponse.ok) {
+      const data = await publicResponse.json()
+      return {
+        title: data.title || undefined,
+        author_name: data.author_name || undefined,
+        thumbnail_url: data.thumbnail_url || undefined,
+      }
+    }
+
+    console.log(`oEmbed fetch failed for ${postUrl}: ${response.status}`)
+    return null
+  } catch (error) {
+    console.log(`oEmbed fetch error for ${postUrl}:`, error instanceof Error ? error.message : error)
+    return null
+  }
+}
+
+async function saveInstagramPost(userId: string, payload: any, attachmentType?: string): Promise<boolean> {
   try {
     const postUrl = payload?.url || ''
     const postId = postUrl.match(/\/p\/([^\/]+)/)?.[1] || postUrl.match(/\/reel\/([^\/]+)/)?.[1]
@@ -668,12 +724,26 @@ async function saveInstagramPost(userId: string, payload: any): Promise<boolean>
       }
     }
 
+    // Detect post type
+    const postType = detectPostType(postUrl, attachmentType)
+    console.log(`Detected post type: ${postType} for URL: ${postUrl} (attachment: ${attachmentType})`)
+
+    // Attempt to fetch metadata via oEmbed
+    const metadata = await fetchInstagramMetadata(postUrl)
+    if (metadata) {
+      console.log(`Fetched oEmbed metadata for ${postUrl}:`, metadata)
+    }
+
     await supabaseAdmin
       .from('saved_posts')
       .insert({
         user_id: userId,
         instagram_post_id: postId || null,
         instagram_url: postUrl,
+        post_type: postType,
+        caption: metadata?.title || null,
+        author_username: metadata?.author_name || null,
+        thumbnail_url: metadata?.thumbnail_url || null,
       })
 
     // Update post count
