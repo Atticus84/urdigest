@@ -4,10 +4,44 @@ import { summarizePosts, generateFallbackSummaries } from '@/lib/ai/summarize'
 import { sendDigestEmail, sendTrialEndedEmail } from '@/lib/email/send'
 import { format } from 'date-fns'
 
+/**
+ * Convert a user's digest_time + timezone into UTC hour.
+ * Returns the UTC hour (0-23) when the digest should be sent.
+ */
+function getDigestUtcHour(digestTime: string, timezone: string): number {
+  // digestTime is "HH:MM:SS" format
+  const localHour = parseInt(digestTime.split(':')[0], 10)
+
+  // Create a date in the user's timezone to find the UTC offset
+  const now = new Date()
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: 'numeric',
+    hour12: false,
+  })
+  const localNowHour = parseInt(formatter.format(now), 10)
+  const utcNowHour = now.getUTCHours()
+
+  // offset = localHour - utcHour (in the user's timezone)
+  let offsetHours = localNowHour - utcNowHour
+  // Normalize to -12..+12 range
+  if (offsetHours > 12) offsetHours -= 24
+  if (offsetHours < -12) offsetHours += 24
+
+  // Convert desired local hour to UTC
+  let utcHour = localHour - offsetHours
+  if (utcHour < 0) utcHour += 24
+  if (utcHour >= 24) utcHour -= 24
+
+  return utcHour
+}
+
 export const dailyDigest = inngest.createFunction(
   { id: 'daily-digest', name: 'Generate and send daily digests' },
-  { cron: '0 6 * * *' }, // Run at 6am daily
+  { cron: '0 * * * *' }, // Run every hour, filter by user timezone
   async ({ event, step }) => {
+    const currentUtcHour = new Date().getUTCHours()
+
     // Get all users who should receive digests
     const { data: users, error } = await supabaseAdmin
       .from('users')
@@ -20,7 +54,16 @@ export const dailyDigest = inngest.createFunction(
       return { error: 'Failed to fetch users' }
     }
 
-    console.log(`Processing digests for ${users.length} users`)
+    // Filter to users whose digest time matches the current UTC hour
+    const eligibleUsers = users.filter((user) => {
+      const digestUtcHour = getDigestUtcHour(
+        user.digest_time || '06:00:00',
+        user.timezone || 'America/New_York'
+      )
+      return digestUtcHour === currentUtcHour
+    })
+
+    console.log(`Processing digests for ${eligibleUsers.length} users (${users.length} total, current UTC hour: ${currentUtcHour})`)
 
     const results = {
       success: 0,
@@ -28,8 +71,8 @@ export const dailyDigest = inngest.createFunction(
       failed: 0,
     }
 
-    // Process each user
-    for (const user of users) {
+    // Process each eligible user
+    for (const user of eligibleUsers) {
       try {
         await step.run(`digest-for-${user.id}`, async () => {
           return await generateDigestForUser(user)
