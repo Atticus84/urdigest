@@ -4,9 +4,17 @@ interface DigestEmailProps {
   newsletter: NewsletterContent
   date: string
   postCount: number
+  followerContext?: {
+    unsubscribeToken: string
+    creatorName: string
+    followSlug?: string | null
+  }
 }
 
-export function DigestEmail({ newsletter, date, postCount }: DigestEmailProps) {
+export function DigestEmail({ newsletter, date, postCount, followerContext }: DigestEmailProps) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+  const isFollower = !!followerContext
+
   return `
 <!DOCTYPE html>
 <html>
@@ -103,14 +111,51 @@ export function DigestEmail({ newsletter, date, postCount }: DigestEmailProps) {
             </td>
           </tr>
 
+          ${isFollower ? `
+          <!-- Follower attribution -->
+          <tr>
+            <td style="padding: 0 32px 8px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding: 16px; background-color: #fafafa; border-radius: 6px; text-align: center;">
+                    <p style="margin: 0; font-size: 13px; color: #666;">
+                      You're receiving this because you follow <strong>${followerContext!.creatorName}</strong>'s digest.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          ` : `
+          <!-- Sharing CTA for digest owner -->
+          <tr>
+            <td style="padding: 0 32px 8px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding: 20px; background-color: #fafafa; border-radius: 6px; text-align: center;">
+                    <p style="margin: 0 0 4px; font-size: 13px; color: #666;">Know someone who'd enjoy this?</p>
+                    <a href="${appUrl}/dashboard/settings#sharing" style="color: #E4405F; text-decoration: none; font-size: 13px; font-weight: 600;">Share your digest &rarr;</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          `}
+
           <!-- Footer -->
           <tr>
             <td style="padding: 24px 32px; text-align: center;">
+              ${isFollower ? `
               <p style="margin: 0 0 8px 0; font-size: 13px; color: #999999;">
-                <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings" style="color: #666666; text-decoration: none;">Manage preferences</a>
-                &nbsp;&middot;&nbsp;
-                <a href="${process.env.NEXT_PUBLIC_APP_URL}/unsubscribe" style="color: #666666; text-decoration: none;">Unsubscribe</a>
+                <a href="${appUrl}/api/followers/unsubscribe?token=${followerContext!.unsubscribeToken}" style="color: #666666; text-decoration: none;">Unsubscribe from this digest</a>
               </p>
+              ` : `
+              <p style="margin: 0 0 8px 0; font-size: 13px; color: #999999;">
+                <a href="${appUrl}/dashboard/settings" style="color: #666666; text-decoration: none;">Manage preferences</a>
+                &nbsp;&middot;&nbsp;
+                <a href="${appUrl}/unsubscribe" style="color: #666666; text-decoration: none;">Unsubscribe</a>
+              </p>
+              `}
               <p style="margin: 0; font-size: 11px; color: #cccccc;">urdigest &middot; Your saved posts, digested daily</p>
             </td>
           </tr>

@@ -43,6 +43,11 @@ export interface Database {
           onboarding_state: string | null
           last_post_received_at: string | null
           password_set_at: string | null
+          digest_name: string | null
+          digest_description: string | null
+          follow_slug: string | null
+          sharing_enabled: boolean
+          follower_count: number
         }
         Insert: {
           id: string
@@ -65,6 +70,11 @@ export interface Database {
           onboarding_state?: string | null
           last_post_received_at?: string | null
           password_set_at?: string | null
+          digest_name?: string | null
+          digest_description?: string | null
+          follow_slug?: string | null
+          sharing_enabled?: boolean
+          follower_count?: number
         }
         Update: {
           id?: string
@@ -87,6 +97,11 @@ export interface Database {
           onboarding_state?: string | null
           last_post_received_at?: string | null
           password_set_at?: string | null
+          digest_name?: string | null
+          digest_description?: string | null
+          follow_slug?: string | null
+          sharing_enabled?: boolean
+          follower_count?: number
         }
         Relationships: []
       }
@@ -167,6 +182,7 @@ export interface Database {
           resend_email_id: string | null
           opened_at: string | null
           created_at: string
+          sent_to_followers_count: number
         }
         Insert: {
           id?: string
@@ -182,6 +198,7 @@ export interface Database {
           resend_email_id?: string | null
           opened_at?: string | null
           created_at?: string
+          sent_to_followers_count?: number
         }
         Update: {
           id?: string
@@ -197,6 +214,7 @@ export interface Database {
           resend_email_id?: string | null
           opened_at?: string | null
           created_at?: string
+          sent_to_followers_count?: number
         }
         Relationships: [
           {
@@ -278,6 +296,94 @@ export interface Database {
           },
         ]
       }
+      digest_followers: {
+        Row: {
+          id: string
+          user_id: string
+          email: string
+          source: 'manual' | 'link' | 'forwarded'
+          confirmed: boolean
+          confirmation_token: string
+          unsubscribe_token: string
+          note: string | null
+          created_at: string
+          confirmed_at: string | null
+          unsubscribed_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          email: string
+          source?: 'manual' | 'link' | 'forwarded'
+          confirmed?: boolean
+          confirmation_token?: string
+          unsubscribe_token?: string
+          note?: string | null
+          created_at?: string
+          confirmed_at?: string | null
+          unsubscribed_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          email?: string
+          source?: 'manual' | 'link' | 'forwarded'
+          confirmed?: boolean
+          confirmation_token?: string
+          unsubscribe_token?: string
+          note?: string | null
+          created_at?: string
+          confirmed_at?: string | null
+          unsubscribed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'digest_followers_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      digest_sends: {
+        Row: {
+          id: string
+          digest_id: string
+          recipient_email: string
+          recipient_type: 'owner' | 'follower'
+          resend_email_id: string | null
+          sent_at: string
+          opened_at: string | null
+        }
+        Insert: {
+          id?: string
+          digest_id: string
+          recipient_email: string
+          recipient_type?: 'owner' | 'follower'
+          resend_email_id?: string | null
+          sent_at?: string
+          opened_at?: string | null
+        }
+        Update: {
+          id?: string
+          digest_id?: string
+          recipient_email?: string
+          recipient_type?: 'owner' | 'follower'
+          resend_email_id?: string | null
+          sent_at?: string
+          opened_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'digest_sends_digest_id_fkey'
+            columns: ['digest_id']
+            isOneToOne: false
+            referencedRelation: 'digests'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
   }
 }
@@ -287,3 +393,5 @@ export type SavedPost = Database['public']['Tables']['saved_posts']['Row']
 export type Digest = Database['public']['Tables']['digests']['Row']
 export type SubscriptionEvent = Database['public']['Tables']['subscription_events']['Row']
 export type DigestRecipient = Database['public']['Tables']['digest_recipients']['Row']
+export type DigestFollower = Database['public']['Tables']['digest_followers']['Row']
+export type DigestSend = Database['public']['Tables']['digest_sends']['Row']
