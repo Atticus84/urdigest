@@ -5,7 +5,11 @@ import { ensureUserProfileServer } from '@/lib/supabase/ensure-profile-server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
 function getStripe() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) {
+    throw new Error('STRIPE_SECRET_KEY environment variable is not set')
+  }
+  return new Stripe(key, {
     apiVersion: '2024-12-18.acacia' as any,
   })
 }
@@ -14,6 +18,22 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('STRIPE_SECRET_KEY is not configured')
+      return NextResponse.json(
+        { error: 'Payment system is not configured. Please contact support.' },
+        { status: 500 }
+      )
+    }
+
+    if (!process.env.STRIPE_PRICE_ID) {
+      console.error('STRIPE_PRICE_ID is not configured')
+      return NextResponse.json(
+        { error: 'Payment system is not configured. Please contact support.' },
+        { status: 500 }
+      )
+    }
+
     const supabase = createClient()
 
     // Get authenticated user
@@ -76,10 +96,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       checkout_url: session.url,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create checkout session error:', error)
+
+    let message = 'Failed to create checkout session'
+    if (error?.type === 'StripeInvalidRequestError') {
+      message = error.message || 'Payment configuration error. Please contact support.'
+    } else if (error?.type === 'StripeAuthenticationError') {
+      message = 'Payment system authentication failed. Please contact support.'
+    } else if (error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED') {
+      message = 'Unable to connect to payment provider. Please try again.'
+    } else if (error?.message) {
+      message = error.message
+    }
+
     return NextResponse.json(
-      { error: 'Failed to create checkout session' },
+      { error: message },
       { status: 500 }
     )
   }

@@ -36,7 +36,11 @@ export async function GET(request: NextRequest) {
   const token = searchParams.get('hub.verify_token')
   const challenge = searchParams.get('hub.challenge')
 
-  const VERIFY_TOKEN = process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN || 'urdigest_verify_token'
+  const VERIFY_TOKEN = process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN
+  if (!VERIFY_TOKEN) {
+    console.error('INSTAGRAM_WEBHOOK_VERIFY_TOKEN environment variable is not set')
+    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
+  }
 
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     console.log('Instagram webhook verified')
@@ -86,6 +90,15 @@ export async function POST(request: NextRequest) {
             
             console.log(`Processing messaging event (type: ${eventType}):`, JSON.stringify(messagingEvent, null, 2))
             
+            // Skip echo messages (messages sent BY the page/bot itself)
+            if (messagingEvent.message?.is_echo) {
+              console.log(`Skipping echo message (sent by bot):`, {
+                messageId: messagingEvent.message?.mid,
+                senderId: messagingEvent.sender?.id,
+              })
+              continue
+            }
+
             // Skip non-message events (message_edit, message_reactions, etc.)
             if (!messagingEvent.sender || !messagingEvent.message) {
               console.log(`Skipping non-message event (type: ${eventType}):`, {
@@ -105,6 +118,10 @@ export async function POST(request: NextRequest) {
             console.log('Processing webhook change:', JSON.stringify(change, null, 2))
             if (change.field === 'messages' && change.value) {
               const v = change.value
+              if (v.message?.is_echo) {
+                console.log('Skipping echo message in changes format')
+                continue
+              }
               if (v.sender && v.message) {
                 await handleMessage({ sender: v.sender, message: v.message })
               } else {
@@ -355,12 +372,16 @@ async function handleNewUser(instagramUserId: string, instagramUsername?: string
 
     if (existingProfileById) {
       console.log(`✅ User profile already exists with this ID, updating...`)
-      const { error: updateError } = await supabaseAdmin
-        .from('users')
-        .update({
+      const updateData: any = {
           instagram_user_id: instagramUserId,
           onboarding_state: 'awaiting_email',
-        })
+        }
+      if (instagramUsername) {
+        updateData.instagram_username = instagramUsername
+      }
+      const { error: updateError } = await supabaseAdmin
+        .from('users')
+        .update(updateData)
         .eq('id', newUserId)
 
       if (updateError) {
@@ -553,8 +574,15 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
     let savedCount = 0
     for (const attachment of message.attachments) {
       console.log(`Processing attachment:`, { type: attachment.type })
-      if (attachment.type === 'media_share' || attachment.type === 'share') {
-        const saved = await saveInstagramPost(userId, attachment.payload)
+      if (
+        attachment.type === 'media_share' ||
+        attachment.type === 'share' ||
+        attachment.type === 'video' ||
+        attachment.type === 'ig_reel' ||
+        attachment.type === 'animated_image_share' ||
+        attachment.type === 'clip'
+      ) {
+        const saved = await saveInstagramPost(userId, attachment.payload, attachment.type)
         if (saved) savedCount++
       }
     }
@@ -627,7 +655,56 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
   }
 }
 
-async function saveInstagramPost(userId: string, payload: any): Promise<boolean> {
+// Detect post type from URL pattern and attachment type
+function detectPostType(url: string, attachmentType?: string): string {
+  if (url.includes('/reel/') || url.includes('/reels/')) return 'reel'
+  if (attachmentType === 'video' || attachmentType === 'clip' || attachmentType === 'ig_reel') return 'video'
+  if (attachmentType === 'animated_image_share') return 'video'
+  if (url.includes('/p/')) return 'photo'
+  return 'photo'
+}
+
+// Fetch metadata from Instagram oEmbed API (no auth required)
+async function fetchInstagramMetadata(postUrl: string): Promise<{
+  title?: string
+  author_name?: string
+  thumbnail_url?: string
+} | null> {
+  try {
+    const oEmbedUrl = `https://graph.facebook.com/v18.0/instagram_oembed?url=${encodeURIComponent(postUrl)}&access_token=${process.env.INSTAGRAM_ACCESS_TOKEN || process.env.FACEBOOK_ACCESS_TOKEN || ''}`
+    const response = await fetch(oEmbedUrl, { signal: AbortSignal.timeout(5000) })
+
+    if (response.ok) {
+      const data = await response.json()
+      return {
+        title: data.title || undefined,
+        author_name: data.author_name || undefined,
+        thumbnail_url: data.thumbnail_url || undefined,
+      }
+    }
+
+    // Fallback: try the public oEmbed endpoint
+    const publicUrl = `https://api.instagram.com/oembed/?url=${encodeURIComponent(postUrl)}`
+    const publicResponse = await fetch(publicUrl, { signal: AbortSignal.timeout(5000) })
+
+    if (publicResponse.ok) {
+      const data = await publicResponse.json()
+      return {
+        title: data.title || undefined,
+        author_name: data.author_name || undefined,
+        thumbnail_url: data.thumbnail_url || undefined,
+      }
+    }
+
+    console.log(`oEmbed fetch failed for ${postUrl}: ${response.status}`)
+    return null
+  } catch (error) {
+    console.log(`oEmbed fetch error for ${postUrl}:`, error instanceof Error ? error.message : error)
+    return null
+  }
+}
+
+async function saveInstagramPost(userId: string, payload: any, attachmentType?: string): Promise<boolean> {
   try {
     const postUrl = payload?.url || ''
     const postId = postUrl.match(/\/p\/([^\/]+)/)?.[1] || postUrl.match(/\/reel\/([^\/]+)/)?.[1]
@@ -651,12 +728,26 @@ async function saveInstagramPost(userId: string, payload: any): Promise<boolean>
       }
     }
 
+    // Detect post type
+    const postType = detectPostType(postUrl, attachmentType)
+    console.log(`Detected post type: ${postType} for URL: ${postUrl} (attachment: ${attachmentType})`)
+
+    // Attempt to fetch metadata via oEmbed
+    const metadata = await fetchInstagramMetadata(postUrl)
+    if (metadata) {
+      console.log(`Fetched oEmbed metadata for ${postUrl}:`, metadata)
+    }
+
     await supabaseAdmin
       .from('saved_posts')
       .insert({
         user_id: userId,
         instagram_post_id: postId || null,
         instagram_url: postUrl,
+        post_type: postType,
+        caption: metadata?.title || null,
+        author_username: metadata?.author_name || null,
+        thumbnail_url: metadata?.thumbnail_url || null,
       })
 
     // Update post count

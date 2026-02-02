@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
@@ -11,6 +11,7 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
@@ -30,52 +31,59 @@ export default function DashboardLayout({
     router.refresh()
   }
 
+  const navLinks = [
+    { href: '/dashboard', label: 'Digests' },
+    { href: '/dashboard/posts', label: 'Saved Posts' },
+    { href: '/dashboard/settings', label: 'Settings' },
+    { href: '/dashboard/subscription', label: 'Subscription' },
+  ]
+
+  const isActive = (href: string) => {
+    if (href === '/dashboard') {
+      return pathname === '/dashboard' || pathname.startsWith('/dashboard/digests')
+    }
+    return pathname.startsWith(href)
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-instagram-pink mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-instagram-pink mx-auto mb-4"></div>
+          <p className="text-gray-500 text-sm">Loading...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <nav className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
+      <nav className="border-b bg-white/50 backdrop-blur-sm">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="flex justify-between items-center h-14">
             <Link href="/dashboard" className="flex items-center space-x-2">
-              <span className="text-2xl">📧</span>
-              <span className="text-xl font-bold bg-gradient-to-r from-instagram-pink to-instagram-purple bg-clip-text text-transparent">
+              <span className="text-lg font-bold bg-gradient-to-r from-instagram-pink to-instagram-purple bg-clip-text text-transparent">
                 urdigest
               </span>
             </Link>
 
-            <div className="flex items-center space-x-6">
-              <Link
-                href="/dashboard"
-                className="text-gray-600 hover:text-gray-900 font-medium"
-              >
-                Posts
-              </Link>
-              <Link
-                href="/dashboard/settings"
-                className="text-gray-600 hover:text-gray-900 font-medium"
-              >
-                Settings
-              </Link>
-              <Link
-                href="/dashboard/subscription"
-                className="text-gray-600 hover:text-gray-900 font-medium"
-              >
-                Subscription
-              </Link>
+            <div className="flex items-center space-x-8">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`text-sm font-medium transition ${
+                    isActive(link.href)
+                      ? 'text-gray-900'
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
               <button
                 onClick={handleLogout}
-                className="text-gray-600 hover:text-gray-900 font-medium"
+                className="text-sm text-gray-400 hover:text-gray-600 font-medium transition"
               >
                 Log out
               </button>
@@ -84,8 +92,7 @@ export default function DashboardLayout({
         </div>
       </nav>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-5xl mx-auto px-6 py-10">
         {children}
       </main>
     </div>

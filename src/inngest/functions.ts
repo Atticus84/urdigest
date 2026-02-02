@@ -1,6 +1,6 @@
 import { inngest } from './client'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { summarizePosts, generateFallbackSummaries } from '@/lib/ai/summarize'
+import { generateNewsletter, generateFallbackNewsletter } from '@/lib/ai/summarize'
 import { sendDigestEmail, sendTrialEndedEmail } from '@/lib/email/send'
 import { format } from 'date-fns'
 
@@ -73,30 +73,22 @@ async function generateDigestForUser(user: any) {
     return { skipped: true }
   }
 
-  // Generate AI summaries
-  let summaries
+  // Generate AI newsletter
+  let newsletter
   let tokensUsed = 0
   let aiCost = 0
 
   try {
-    const result = await summarizePosts(posts)
-    summaries = result.summaries
+    const result = await generateNewsletter(posts)
+    newsletter = result.newsletter
     tokensUsed = result.tokensUsed
     aiCost = result.cost
   } catch (error) {
-    console.error('AI summarization failed, using fallback:', error)
-    summaries = generateFallbackSummaries(posts)
+    console.error('AI newsletter generation failed, using fallback:', error)
+    newsletter = generateFallbackNewsletter(posts)
   }
 
-  // Prepare email data
-  const emailPosts = posts.map((post, index) => ({
-    id: post.id,
-    title: summaries[index]?.title || post.caption?.slice(0, 50) || 'Untitled Post',
-    summary: summaries[index]?.summary || post.caption || 'No summary available',
-    instagram_url: post.instagram_url,
-    thumbnail_url: post.thumbnail_url,
-    author_username: post.author_username,
-  }))
+  const dateStr = format(new Date(), 'MMMM d, yyyy')
 
   // Get additional recipients
   const { data: recipients } = await supabaseAdmin
@@ -116,17 +108,17 @@ async function generateDigestForUser(user: any) {
   }
 
   // Send email to all recipients
-  const dateStr = format(new Date(), 'MMMM d, yyyy')
   let resendEmailId = ''
   for (const email of allEmails) {
-    const id = await sendDigestEmail(email, emailPosts, dateStr)
-    if (!resendEmailId) resendEmailId = id // store first email ID
+    const id = await sendDigestEmail(email, newsletter, dateStr, posts.length)
+    if (!resendEmailId) resendEmailId = id
   }
 
   // Save digest record
   await supabaseAdmin.from('digests').insert({
     user_id: user.id,
-    subject: `Your daily urdigest: ${posts.length} ${posts.length === 1 ? 'post' : 'posts'}`,
+    subject: newsletter.subject_line,
+    summary: newsletter.big_picture || null,
     post_ids: posts.map(p => p.id),
     post_count: posts.length,
     ai_tokens_used: tokensUsed,
