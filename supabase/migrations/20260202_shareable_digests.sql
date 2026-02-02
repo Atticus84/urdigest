@@ -36,6 +36,24 @@ CREATE INDEX IF NOT EXISTS idx_digest_followers_confirmation_token
 CREATE INDEX IF NOT EXISTS idx_digest_followers_unsubscribe_token
   ON digest_followers(unsubscribe_token);
 
+-- RLS for digest_followers
+ALTER TABLE digest_followers ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own followers" ON digest_followers
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own followers" ON digest_followers
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own followers" ON digest_followers
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own followers" ON digest_followers
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Service role needs full access (for confirmation/unsubscribe endpoints)
+-- The service role key bypasses RLS by default, so no extra policy needed.
+
 -- 3. Track digest sends (who received what)
 CREATE TABLE IF NOT EXISTS digest_sends (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -48,6 +66,15 @@ CREATE TABLE IF NOT EXISTS digest_sends (
 );
 
 CREATE INDEX IF NOT EXISTS idx_digest_sends_digest_id ON digest_sends(digest_id);
+
+-- RLS for digest_sends
+ALTER TABLE digest_sends ENABLE ROW LEVEL SECURITY;
+
+-- Users can view sends for their own digests
+CREATE POLICY "Users can view own digest sends" ON digest_sends
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM digests WHERE digests.id = digest_sends.digest_id AND digests.user_id = auth.uid())
+  );
 
 -- 4. Digests: add sent_to_followers_count
 ALTER TABLE digests ADD COLUMN IF NOT EXISTS sent_to_followers_count INTEGER NOT NULL DEFAULT 0;

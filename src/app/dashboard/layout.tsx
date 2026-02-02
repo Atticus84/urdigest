@@ -34,6 +34,7 @@ export default function DashboardLayout({
   const navLinks = [
     { href: '/dashboard', label: 'Digests' },
     { href: '/dashboard/posts', label: 'Saved Posts' },
+    { href: '/dashboard/sharing', label: 'Sharing' },
     { href: '/dashboard/settings', label: 'Settings' },
     { href: '/dashboard/subscription', label: 'Subscription' },
   ]
