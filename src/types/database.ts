@@ -243,6 +243,41 @@ export interface Database {
           },
         ]
       }
+      digest_recipients: {
+        Row: {
+          id: string
+          user_id: string
+          email: string
+          name: string | null
+          confirmed: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          email: string
+          name?: string | null
+          confirmed?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          email?: string
+          name?: string | null
+          confirmed?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'digest_recipients_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
   }
 }
@@ -251,3 +286,4 @@ export type User = Database['public']['Tables']['users']['Row']
 export type SavedPost = Database['public']['Tables']['saved_posts']['Row']
 export type Digest = Database['public']['Tables']['digests']['Row']
 export type SubscriptionEvent = Database['public']['Tables']['subscription_events']['Row']
+export type DigestRecipient = Database['public']['Tables']['digest_recipients']['Row']
