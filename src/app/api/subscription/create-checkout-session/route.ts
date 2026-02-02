@@ -95,12 +95,15 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Create checkout session error:', error)
 
-    // Provide more specific error messages
     let message = 'Failed to create checkout session'
     if (error?.type === 'StripeInvalidRequestError') {
-      message = 'Payment configuration error. Please contact support.'
+      message = error.message || 'Payment configuration error. Please contact support.'
+    } else if (error?.type === 'StripeAuthenticationError') {
+      message = 'Payment system authentication failed. Please contact support.'
     } else if (error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED') {
       message = 'Unable to connect to payment provider. Please try again.'
+    } else if (error?.message) {
+      message = error.message
     }
 
     return NextResponse.json(
