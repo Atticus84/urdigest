@@ -551,23 +551,34 @@ async function handleOnboardedMessage(userId: string, instagramUserId: string, m
   // Check for shared media (Instagram post shared via DM)
   if (message.attachments) {
     let savedCount = 0
+    let hasShareableAttachment = false
     for (const attachment of message.attachments) {
-      console.log(`Processing attachment:`, { type: attachment.type })
-      if (attachment.type === 'media_share' || attachment.type === 'share') {
+      console.log(`Processing attachment:`, { type: attachment.type, payload: JSON.stringify(attachment.payload)?.substring(0, 200) })
+      if (['media_share', 'share', 'video', 'ig_reel', 'reel', 'clip'].includes(attachment.type)) {
+        hasShareableAttachment = true
         const saved = await saveInstagramPost(userId, attachment.payload)
         if (saved) savedCount++
       }
     }
 
-    if (savedCount > 0) {
-      console.log(`Saved ${savedCount} post(s) for user ${userId}`)
-      const sent = await sendInstagramMessage(
-        instagramUserId,
-        savedCount === 1
-          ? "✅ Added to your next digest!"
-          : `✅ Added ${savedCount} posts to your next digest!`
-      )
-      if (!sent) console.error(`Failed to send confirmation message to ${instagramUserId}`)
+    if (hasShareableAttachment) {
+      if (savedCount > 0) {
+        console.log(`Saved ${savedCount} post(s) for user ${userId}`)
+        const sent = await sendInstagramMessage(
+          instagramUserId,
+          savedCount === 1
+            ? "✅ Added to your next digest!"
+            : `✅ Added ${savedCount} posts to your next digest!`
+        )
+        if (!sent) console.error(`Failed to send confirmation message to ${instagramUserId}`)
+      } else {
+        console.error(`Failed to save any attachments for user ${userId}`)
+        const sent = await sendInstagramMessage(
+          instagramUserId,
+          "⚠️ I couldn't save that post. It may be a duplicate or the link couldn't be extracted. Try sharing it again."
+        )
+        if (!sent) console.error(`Failed to send error message to ${instagramUserId}`)
+      }
       return
     }
   }
