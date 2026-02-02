@@ -6,19 +6,30 @@ import { sendPaymentFailedEmail } from '@/lib/email/send'
 export const dynamic = 'force-dynamic'
 
 function getStripe() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) {
+    throw new Error('STRIPE_SECRET_KEY environment variable is not set')
+  }
+  return new Stripe(key, {
     apiVersion: '2024-12-18.acacia' as any,
   })
 }
 
 function getWebhookSecret() {
-  return process.env.STRIPE_WEBHOOK_SECRET!
+  const secret = process.env.STRIPE_WEBHOOK_SECRET
+  if (!secret) {
+    throw new Error('STRIPE_WEBHOOK_SECRET environment variable is not set')
+  }
+  return secret
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text()
-    const signature = request.headers.get('stripe-signature')!
+    const signature = request.headers.get('stripe-signature')
+    if (!signature) {
+      return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 })
+    }
 
     let event: Stripe.Event
 
