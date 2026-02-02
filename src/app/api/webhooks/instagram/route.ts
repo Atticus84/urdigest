@@ -321,7 +321,7 @@ async function handleNewUser(instagramUserId: string, instagramUsername?: string
       if (authError?.message?.includes('already registered')) {
         console.log('Auth user already exists, looking up by email...')
         const { data: existingAuthUsers } = await supabaseAdmin.auth.admin.listUsers()
-        const existingAuth = existingAuthUsers?.users?.find(u => u.email === email)
+        const existingAuth = existingAuthUsers?.users?.find((u: { email?: string }) => u.email === email)
         if (existingAuth) {
           newUserId = existingAuth.id
           console.log(`✅ Found existing auth user with ID: ${newUserId}`)

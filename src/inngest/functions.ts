@@ -112,7 +112,7 @@ async function generateDigestForUser(user: any) {
     post_ids: posts.map(p => p.id),
     post_count: posts.length,
     ai_tokens_used: tokensUsed,
-    ai_cost_usd: aiCost.toString(),
+    ai_cost_usd: aiCost.toFixed(6),
     resend_email_id: resendEmailId,
   })
 
