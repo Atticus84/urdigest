@@ -78,4 +78,5 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: ['/dashboard/:path*', '/login', '/signup'],
+  // Note: /admin is NOT protected by Supabase auth — it uses ADMIN_SECRET query param
 }
