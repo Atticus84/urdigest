@@ -33,7 +33,7 @@ export default function DigestsPage() {
   if (loading) {
     return (
       <div className="text-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-instagram-pink mx-auto mb-4"></div>
         <p className="text-gray-400 text-sm">Loading your digests...</p>
       </div>
     )
@@ -51,7 +51,7 @@ export default function DigestsPage() {
         <div className="flex items-center justify-center gap-4">
           <Link
             href="/dashboard/posts"
-            className="text-sm font-medium text-gray-900 border border-gray-200 px-5 py-2.5 rounded-lg hover:bg-gray-50 transition"
+            className="text-sm font-medium text-white bg-instagram-pink px-5 py-2.5 rounded-lg hover:bg-instagram-pink/90 transition"
           >
             View how it works
           </Link>
@@ -74,7 +74,7 @@ export default function DigestsPage() {
             <Link
               key={digest.id}
               href={`/dashboard/digests/${digest.id}`}
-              className="block border border-gray-100 rounded-lg p-6 hover:border-gray-200 hover:shadow-sm transition group"
+              className="block bg-white border border-gray-100 rounded-xl p-6 hover:border-instagram-pink/30 hover:shadow-sm transition group"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
@@ -93,7 +93,7 @@ export default function DigestsPage() {
                     Sent at {format(sentDate, 'h:mm a')}
                   </p>
                 </div>
-                <span className="text-sm font-medium text-gray-400 group-hover:text-gray-900 transition ml-4 shrink-0">
+                <span className="text-sm font-medium text-gray-400 group-hover:text-instagram-pink transition ml-4 shrink-0">
                   View Digest &rarr;
                 </span>
               </div>

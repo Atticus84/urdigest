@@ -19,7 +19,6 @@ interface ParsedPost {
 }
 
 function parseDigestHtml(htmlContent: string | null, posts: SavedPost[]): ParsedPost[] {
-  // If we have posts, generate display data from them
   if (posts.length > 0) {
     return posts.map((post) => ({
       title: post.caption
@@ -65,7 +64,7 @@ export default function DigestDetailPage() {
   if (loading) {
     return (
       <div className="text-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-instagram-pink mx-auto mb-4"></div>
         <p className="text-gray-400 text-sm">Loading digest...</p>
       </div>
     )
@@ -75,7 +74,7 @@ export default function DigestDetailPage() {
     return (
       <div className="max-w-2xl mx-auto text-center py-20">
         <p className="text-gray-500 mb-4">{error || 'Digest not found'}</p>
-        <Link href="/dashboard" className="text-sm text-gray-900 font-medium hover:underline">
+        <Link href="/dashboard" className="text-sm text-instagram-pink font-medium hover:underline">
           &larr; Back to all digests
         </Link>
       </div>
@@ -91,7 +90,7 @@ export default function DigestDetailPage() {
       {/* Back nav */}
       <Link
         href="/dashboard"
-        className="inline-block text-sm text-gray-400 hover:text-gray-600 mb-8 transition"
+        className="inline-block text-sm text-instagram-purple hover:text-instagram-pink mb-8 transition"
       >
         &larr; Back to all digests
       </Link>
@@ -139,7 +138,7 @@ export default function DigestDetailPage() {
                 href={post.originalUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-gray-400 hover:text-gray-600 font-medium transition"
+                className="text-sm text-instagram-pink hover:text-instagram-purple font-medium transition"
               >
                 View original post &rarr;
               </a>
@@ -147,7 +146,6 @@ export default function DigestDetailPage() {
           ))}
         </div>
       ) : digest.html_content ? (
-        // Fallback: render the raw HTML content
         <div
           className="prose prose-gray max-w-none"
           dangerouslySetInnerHTML={{ __html: digest.html_content }}

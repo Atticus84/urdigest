@@ -66,7 +66,7 @@ export default function SubscriptionPage() {
   if (loading) {
     return (
       <div className="text-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-instagram-pink mx-auto mb-4"></div>
         <p className="text-gray-400 text-sm">Loading subscription...</p>
       </div>
     )
@@ -83,11 +83,11 @@ export default function SubscriptionPage() {
       <p className="text-gray-400 text-sm mb-10">Manage your plan</p>
 
       {/* Current Plan */}
-      <div className="border border-gray-100 rounded-lg p-6 mb-6">
+      <div className="bg-white border border-gray-100 rounded-xl p-6 mb-6">
         <div className="mb-6">
           {isActive && (
             <>
-              <span className="inline-block text-xs font-medium text-gray-900 bg-gray-100 px-2.5 py-1 rounded-full mb-3">
+              <span className="inline-block text-xs font-medium text-instagram-purple bg-instagram-purple/10 px-2.5 py-1 rounded-full mb-3">
                 Active
               </span>
               <p className="text-sm text-gray-600 mb-1">
@@ -104,7 +104,7 @@ export default function SubscriptionPage() {
 
           {isTrial && !user?.trial_digest_sent && (
             <>
-              <span className="inline-block text-xs font-medium text-gray-900 bg-gray-100 px-2.5 py-1 rounded-full mb-3">
+              <span className="inline-block text-xs font-medium text-instagram-pink bg-instagram-pink/10 px-2.5 py-1 rounded-full mb-3">
                 Trial
               </span>
               <p className="text-sm text-gray-600">
@@ -126,7 +126,7 @@ export default function SubscriptionPage() {
 
           {isPastDue && (
             <>
-              <span className="inline-block text-xs font-medium text-red-600 bg-red-50 px-2.5 py-1 rounded-full mb-3">
+              <span className="inline-block text-xs font-medium text-instagram-pink bg-instagram-pink/10 px-2.5 py-1 rounded-full mb-3">
                 Payment failed
               </span>
               <p className="text-sm text-gray-600">
@@ -154,7 +154,7 @@ export default function SubscriptionPage() {
           <button
             onClick={handleUpgrade}
             disabled={processingCheckout}
-            className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-instagram-pink text-white py-2.5 rounded-lg text-sm font-medium hover:bg-instagram-pink/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {processingCheckout ? 'Processing...' : 'Upgrade to Premium - $5/month'}
           </button>

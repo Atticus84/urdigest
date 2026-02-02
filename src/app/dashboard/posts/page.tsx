@@ -92,7 +92,7 @@ export default function SavedPostsPage() {
   if (loading) {
     return (
       <div className="text-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-instagram-pink mx-auto mb-4"></div>
         <p className="text-gray-400 text-sm">Loading your posts...</p>
       </div>
     )
@@ -111,7 +111,7 @@ export default function SavedPostsPage() {
           <button
             onClick={sendDigestManually}
             disabled={sendingDigest}
-            className="text-sm font-medium bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-sm font-medium bg-instagram-pink text-white px-4 py-2 rounded-lg hover:bg-instagram-pink/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {sendingDigest ? 'Sending...' : `Send Digest Now (${pendingPosts.length})`}
           </button>
@@ -129,7 +129,7 @@ export default function SavedPostsPage() {
             key={f.key}
             onClick={() => setFilter(f.key)}
             className={`text-sm font-medium transition ${
-              filter === f.key ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'
+              filter === f.key ? 'text-instagram-pink' : 'text-gray-400 hover:text-gray-600'
             }`}
           >
             {f.label}
@@ -194,9 +194,9 @@ export default function SavedPostsPage() {
                   </span>
                   <span className={`text-xs font-medium ${
                     post.processed
-                      ? 'text-gray-400'
+                      ? 'text-instagram-purple'
                       : pendingIds.has(post.id)
-                        ? 'text-gray-900'
+                        ? 'text-instagram-pink'
                         : 'text-gray-400'
                   }`}>
                     {post.processed
@@ -214,7 +214,7 @@ export default function SavedPostsPage() {
                   href={post.instagram_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-gray-400 hover:text-gray-600 font-medium transition"
+                  className="text-xs text-gray-400 hover:text-instagram-pink font-medium transition"
                 >
                   View
                 </a>

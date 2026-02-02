@@ -84,7 +84,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="text-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-instagram-pink mx-auto mb-4"></div>
         <p className="text-gray-400 text-sm">Loading settings...</p>
       </div>
     )
@@ -98,7 +98,7 @@ export default function SettingsPage() {
       <form onSubmit={saveSettings} className="space-y-8">
         {/* Digest Preferences */}
         <section>
-          <h2 className="text-sm font-medium text-gray-900 uppercase tracking-wide mb-6">
+          <h2 className="text-sm font-medium text-instagram-purple uppercase tracking-wide mb-6">
             Digest Preferences
           </h2>
 
@@ -115,7 +115,7 @@ export default function SettingsPage() {
                 onChange={(e) => setDigestEnabled(e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-10 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-900"></div>
+              <div className="w-10 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-instagram-pink"></div>
             </label>
           </div>
 
@@ -127,7 +127,7 @@ export default function SettingsPage() {
               type="time"
               value={digestTime.substring(0, 5)}
               onChange={(e) => setDigestTime(e.target.value + ':00')}
-              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-instagram-pink/30 focus:border-instagram-pink outline-none transition"
             />
           </div>
 
@@ -138,7 +138,7 @@ export default function SettingsPage() {
             <select
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+              className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-instagram-pink/30 focus:border-instagram-pink outline-none transition"
             >
               {TIMEZONES.map((tz) => (
                 <option key={tz.value} value={tz.value}>
@@ -151,7 +151,7 @@ export default function SettingsPage() {
 
         {/* Email */}
         <section>
-          <h2 className="text-sm font-medium text-gray-900 uppercase tracking-wide mb-6">
+          <h2 className="text-sm font-medium text-instagram-purple uppercase tracking-wide mb-6">
             Email
           </h2>
           <div className="py-4 border-b border-gray-50">
@@ -163,7 +163,7 @@ export default function SettingsPage() {
         {/* Status Message */}
         {message && (
           <div className={`text-sm ${
-            message.includes('Failed') ? 'text-red-600' : 'text-gray-500'
+            message.includes('Failed') ? 'text-red-600' : 'text-instagram-purple'
           }`}>
             {message}
           </div>
@@ -173,7 +173,7 @@ export default function SettingsPage() {
         <button
           type="submit"
           disabled={saving}
-          className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-instagram-pink text-white py-2.5 rounded-lg text-sm font-medium hover:bg-instagram-pink/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saving ? 'Saving...' : 'Save Settings'}
         </button>

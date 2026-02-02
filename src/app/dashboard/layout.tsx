@@ -49,7 +49,7 @@ export default function DashboardLayout({
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-instagram-pink mx-auto mb-4"></div>
           <p className="text-gray-500 text-sm">Loading...</p>
         </div>
       </div>
@@ -57,12 +57,14 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <nav className="border-b border-gray-100">
+    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
+      <nav className="border-b bg-white/50 backdrop-blur-sm">
         <div className="max-w-5xl mx-auto px-6">
           <div className="flex justify-between items-center h-14">
-            <Link href="/dashboard" className="text-lg font-semibold text-gray-900">
-              urdigest
+            <Link href="/dashboard" className="flex items-center space-x-2">
+              <span className="text-lg font-bold bg-gradient-to-r from-instagram-pink to-instagram-purple bg-clip-text text-transparent">
+                urdigest
+              </span>
             </Link>
 
             <div className="flex items-center space-x-8">
