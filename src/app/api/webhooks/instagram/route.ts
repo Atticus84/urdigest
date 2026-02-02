@@ -90,6 +90,15 @@ export async function POST(request: NextRequest) {
             
             console.log(`Processing messaging event (type: ${eventType}):`, JSON.stringify(messagingEvent, null, 2))
             
+            // Skip echo messages (messages sent BY the page/bot itself)
+            if (messagingEvent.message?.is_echo) {
+              console.log(`Skipping echo message (sent by bot):`, {
+                messageId: messagingEvent.message?.mid,
+                senderId: messagingEvent.sender?.id,
+              })
+              continue
+            }
+
             // Skip non-message events (message_edit, message_reactions, etc.)
             if (!messagingEvent.sender || !messagingEvent.message) {
               console.log(`Skipping non-message event (type: ${eventType}):`, {
@@ -109,6 +118,10 @@ export async function POST(request: NextRequest) {
             console.log('Processing webhook change:', JSON.stringify(change, null, 2))
             if (change.field === 'messages' && change.value) {
               const v = change.value
+              if (v.message?.is_echo) {
+                console.log('Skipping echo message in changes format')
+                continue
+              }
               if (v.sender && v.message) {
                 await handleMessage({ sender: v.sender, message: v.message })
               } else {
