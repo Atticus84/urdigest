@@ -33,22 +33,17 @@ export async function GET(request: NextRequest) {
         .eq('id', follower.id)
 
       // Update follower count
-      await supabaseAdmin.rpc('increment_follower_count', { uid: follower.user_id })
-        .then(() => {})
-        .catch(async () => {
-          // Fallback: count manually
-          const { count } = await supabaseAdmin
-            .from('digest_followers')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', follower.user_id)
-            .eq('confirmed', true)
-            .is('unsubscribed_at', null)
+      const { count } = await supabaseAdmin
+        .from('digest_followers')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', follower.user_id)
+        .eq('confirmed', true)
+        .is('unsubscribed_at', null)
 
-          await supabaseAdmin
-            .from('users')
-            .update({ follower_count: count || 0 })
-            .eq('id', follower.user_id)
-        })
+      await supabaseAdmin
+        .from('users')
+        .update({ follower_count: count || 0 })
+        .eq('id', follower.user_id)
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
