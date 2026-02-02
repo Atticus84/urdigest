@@ -3,12 +3,15 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ensureUserProfile } from '@/lib/supabase/ensure-profile'
-import type { SavedPost, User } from '@/types/database'
+import type { SavedPost, User, Digest } from '@/types/database'
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [posts, setPosts] = useState<SavedPost[]>([])
   const [pendingPosts, setPendingPosts] = useState<SavedPost[]>([])
+  const [sentDigests, setSentDigests] = useState<Digest[]>([])
+  const [viewingDigest, setViewingDigest] = useState<Digest | null>(null)
+  const [loadingDigest, setLoadingDigest] = useState(false)
   const [loading, setLoading] = useState(true)
   const [sendingDigest, setSendingDigest] = useState(false)
 
@@ -41,7 +44,10 @@ export default function DashboardPage() {
     
     // Load pending posts for digest
     await loadPendingDigest()
-    
+
+    // Load sent digests
+    await loadSentDigests()
+
     setLoading(false)
   }
 
@@ -54,6 +60,33 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error('Failed to load pending digest:', error)
+    }
+  }
+
+  const loadSentDigests = async () => {
+    try {
+      const response = await fetch('/api/digests/history')
+      if (response.ok) {
+        const data = await response.json()
+        setSentDigests(data.digests || [])
+      }
+    } catch (error) {
+      console.error('Failed to load sent digests:', error)
+    }
+  }
+
+  const viewDigest = async (digestId: string) => {
+    setLoadingDigest(true)
+    try {
+      const response = await fetch(`/api/digests/${digestId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setViewingDigest(data.digest)
+      }
+    } catch (error) {
+      console.error('Failed to load digest:', error)
+    } finally {
+      setLoadingDigest(false)
     }
   }
 
@@ -248,6 +281,80 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Sent Digests Section */}
+      {sentDigests.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            📬 Sent Digests
+          </h2>
+          <div className="space-y-3">
+            {sentDigests.map((digest) => (
+              <div
+                key={digest.id}
+                className="flex items-center justify-between border border-gray-100 rounded-lg p-4 hover:bg-gray-50 transition"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-900 truncate">
+                    {digest.subject || 'Digest'}
+                  </p>
+                  <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                    <span>{new Date(digest.sent_at).toLocaleDateString()}</span>
+                    <span>{digest.post_count} {digest.post_count === 1 ? 'post' : 'posts'}</span>
+                  </div>
+                  {digest.summary && (
+                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">{digest.summary}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => viewDigest(digest.id)}
+                  className="ml-4 shrink-0 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition"
+                >
+                  View
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Digest Viewer Modal */}
+      {viewingDigest && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div>
+                <h3 className="font-bold text-gray-900">{viewingDigest.subject || 'Digest'}</h3>
+                <p className="text-sm text-gray-500">
+                  Sent {new Date(viewingDigest.sent_at).toLocaleDateString()} · {viewingDigest.post_count} posts
+                </p>
+              </div>
+              <button
+                onClick={() => setViewingDigest(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-4">
+              {loadingDigest ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-instagram-pink mx-auto"></div>
+                </div>
+              ) : viewingDigest.html_content ? (
+                <div
+                  className="digest-content"
+                  dangerouslySetInnerHTML={{ __html: viewingDigest.html_content }}
+                />
+              ) : (
+                <p className="text-gray-500 text-center py-8">
+                  {viewingDigest.summary || 'No preview available for this digest.'}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Posts Grid */}
       {posts.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
@@ -272,19 +379,24 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {posts.map((post) => (
             <div key={post.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition">
-              {post.thumbnail_url && (
+              {post.thumbnail_url ? (
                 <img
                   src={post.thumbnail_url}
                   alt={post.caption || 'Instagram post'}
                   className="w-full h-48 object-cover"
                 />
+              ) : (
+                <div className="w-full h-48 bg-gray-50 flex items-center justify-center">
+                  <div className="text-center text-gray-400">
+                    <span className="text-4xl block mb-1">📷</span>
+                    <span className="text-xs">{post.post_type || 'Post'}</span>
+                  </div>
+                </div>
               )}
               <div className="p-4">
-                {post.author_username && (
-                  <p className="text-sm font-semibold text-gray-900 mb-2">
-                    @{post.author_username}
-                  </p>
-                )}
+                <p className="text-sm font-semibold text-gray-900 mb-2">
+                  {post.author_username ? `@${post.author_username}` : 'Instagram Post'}
+                </p>
                 {post.caption && (
                   <p className="text-sm text-gray-600 mb-3 line-clamp-3">
                     {post.caption}
