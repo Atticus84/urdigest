@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 
 interface UserRow {
@@ -35,7 +35,19 @@ interface Stats {
   recentDigests: DigestRow[]
 }
 
-export default function AdminDashboard() {
+export default function AdminPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <p className="text-gray-400">Loading...</p>
+      </div>
+    }>
+      <AdminDashboard />
+    </Suspense>
+  )
+}
+
+function AdminDashboard() {
   const searchParams = useSearchParams()
   const secret = searchParams.get('secret')
   const [stats, setStats] = useState<Stats | null>(null)
