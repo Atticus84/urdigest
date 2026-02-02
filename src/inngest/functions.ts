@@ -98,12 +98,30 @@ async function generateDigestForUser(user: any) {
     author_username: post.author_username,
   }))
 
-  // Send email
-  const resendEmailId = await sendDigestEmail(
-    user.email,
-    emailPosts,
-    format(new Date(), 'MMMM d, yyyy')
-  )
+  // Get additional recipients
+  const { data: recipients } = await supabaseAdmin
+    .from('digest_recipients')
+    .select('email')
+    .eq('user_id', user.id)
+    .eq('confirmed', true)
+
+  // Build list of all email addresses (user + recipients)
+  const allEmails = [user.email]
+  if (recipients && recipients.length > 0) {
+    for (const r of recipients) {
+      if (!allEmails.includes(r.email)) {
+        allEmails.push(r.email)
+      }
+    }
+  }
+
+  // Send email to all recipients
+  const dateStr = format(new Date(), 'MMMM d, yyyy')
+  let resendEmailId = ''
+  for (const email of allEmails) {
+    const id = await sendDigestEmail(email, emailPosts, dateStr)
+    if (!resendEmailId) resendEmailId = id // store first email ID
+  }
 
   // Save digest record
   await supabaseAdmin.from('digests').insert({
