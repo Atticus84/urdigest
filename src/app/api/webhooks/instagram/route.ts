@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { sendInstagramMessage } from '@/lib/instagram/send-message'
 import { getInstagramUsername } from '@/lib/instagram/get-username'
+import { fetchInstagramPostMeta } from '@/lib/instagram/fetch-post-meta'
 
 export const dynamic = 'force-dynamic'
 
@@ -651,12 +652,18 @@ async function saveInstagramPost(userId: string, payload: any): Promise<boolean>
       }
     }
 
+    // Fetch post metadata (username, caption, thumbnail) via oEmbed
+    const meta = await fetchInstagramPostMeta(postUrl)
+
     await supabaseAdmin
       .from('saved_posts')
       .insert({
         user_id: userId,
         instagram_post_id: postId || null,
         instagram_url: postUrl,
+        author_username: meta.author_username,
+        caption: meta.caption,
+        thumbnail_url: meta.thumbnail_url,
       })
 
     // Update post count

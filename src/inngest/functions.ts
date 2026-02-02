@@ -2,6 +2,7 @@ import { inngest } from './client'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { summarizePosts, generateFallbackSummaries } from '@/lib/ai/summarize'
 import { sendDigestEmail, sendTrialEndedEmail } from '@/lib/email/send'
+import { fetchInstagramPostMeta } from '@/lib/instagram/fetch-post-meta'
 import { format } from 'date-fns'
 
 export const dailyDigest = inngest.createFunction(
@@ -65,6 +66,31 @@ async function generateDigestForUser(user: any) {
   if (!posts || posts.length === 0) {
     console.log(`No posts for user ${user.id}, skipping`)
     return { skipped: true }
+  }
+
+  // Enrich posts missing metadata via oEmbed
+  for (const post of posts) {
+    if (!post.author_username || !post.caption) {
+      const meta = await fetchInstagramPostMeta(post.instagram_url)
+      if (meta.author_username || meta.caption || meta.thumbnail_url) {
+        const updates: Record<string, any> = {}
+        if (!post.author_username && meta.author_username) {
+          post.author_username = meta.author_username
+          updates.author_username = meta.author_username
+        }
+        if (!post.caption && meta.caption) {
+          post.caption = meta.caption
+          updates.caption = meta.caption
+        }
+        if (!post.thumbnail_url && meta.thumbnail_url) {
+          post.thumbnail_url = meta.thumbnail_url
+          updates.thumbnail_url = meta.thumbnail_url
+        }
+        if (Object.keys(updates).length > 0) {
+          await supabaseAdmin.from('saved_posts').update(updates).eq('id', post.id)
+        }
+      }
+    }
   }
 
   // Check trial status
