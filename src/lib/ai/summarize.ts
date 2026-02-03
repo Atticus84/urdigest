@@ -38,30 +38,42 @@ export async function generateNewsletter(
 }> {
   const systemPrompt = `You are a witty, sharp newsletter editor writing a daily digest email in the style of Morning Brew. Your job is to transform saved Instagram posts into an engaging, editorial newsletter that people actually want to read.
 
-Rules:
+CRITICAL RULES:
 - Write in a conversational, clever tone. Be informative but not dry.
-- Each section covers one post (or groups closely related posts together).
+- Each section covers one post. Create EXACTLY ${posts.length} sections, one for each post.
 - Bold key phrases using <b> tags for skimmability.
 - Taper section lengths — start longer (~80-100 words), end shorter (~40-60 words) to accelerate reading.
-- Posts can be photos, videos, reels, or carousels. For video/reel posts, focus on what the video content is likely about based on the caption and author context. If the caption is missing, use the URL and author to infer the topic and still provide a useful summary.
-- If a post has no caption or very little info, keep it brief and curiosity-driven ("This caught your eye — tap through to see why").
-- The greeting should be one punchy line. No "Dear reader" energy.
-- The big_picture is a 2-3 sentence closing thought that ties themes together or leaves the reader with something to think about.
-- The subject_line should be catchy and reference the most interesting post topic (max 60 chars).
-- Use exactly one emoji per section that fits the content.
+
+HANDLING MISSING DATA (VERY IMPORTANT):
+- Many posts may have missing captions or unknown authors. This is NORMAL for Instagram shares.
+- When caption is missing: Look at the URL to identify if it's a reel, photo, or post. Create engaging curiosity-driven copy like "You saved this one for a reason — <b>tap through to see what caught your eye</b>."
+- When author is unknown: Use creative placeholders in the body like "from a creator worth checking out" or "dropped into your feed and made you stop scrolling."
+- NEVER just say "No caption available" or show raw "Unknown" in your output. Transform it into engaging copy.
+- For reels: "This reel made the cut — <b>worth a rewatch</b>."
+- For photos: "A visual that spoke to you. <b>Sometimes a picture says it all</b>."
+
+CONTENT CREATION:
+- Posts can be photos, videos, reels, or carousels.
+- The greeting should be one punchy line. No "Dear reader" energy. Examples: "Your feed had gems today.", "Look what you saved.", "The good stuff from your scroll session."
+- The big_picture is a 2-3 sentence closing thought. Make it feel like a friend wrapping up. Reference the variety of content they saved.
+- The subject_line should be catchy and intriguing (max 60 chars). Don't reference specific post content if data is missing — use general engaging lines like "Your saved posts, delivered ✨" or "What caught your eye today"
+- Use exactly one emoji per section that fits the vibe (even if you're guessing the content).
 - Do NOT use markdown. Use <b> tags for bold only.`
 
   const userPrompt = `
 Write a Morning Brew-style newsletter from these ${posts.length} saved Instagram posts:
 
-${posts.map((post, i) => `
-POST ${i}:
+${posts.map((post, i) => {
+  const postType = post.post_type || 'photo'
+  const isReel = post.instagram_url?.includes('/reel/') || postType === 'reel' || postType === 'video'
+  return `
+POST ${i + 1}:
 URL: ${post.instagram_url}
-Author: ${post.author_username ? `@${post.author_username}` : 'Unknown'}
-Caption: ${post.caption || 'No caption available'}
-Type: ${post.post_type || 'photo'}
+Author: ${post.author_username || '(not available)'}
+Caption: ${post.caption || '(not available)'}
+Type: ${isReel ? 'reel/video' : postType}
 ---
-`).join('\n')}
+`}).join('\n')}
 
 Return a JSON object with this exact structure:
 {
@@ -70,16 +82,20 @@ Return a JSON object with this exact structure:
   "sections": [
     {
       "emoji": "🔥",
-      "headline": "BOLD SECTION HEADLINE",
-      "body": "60-100 word editorial write-up with <b>bold key phrases</b>. Conversational, insightful, skimmable.",
+      "headline": "SHORT CATCHY HEADLINE (3-6 words, all caps)",
+      "body": "60-100 word editorial write-up with <b>bold key phrases</b>. Conversational, insightful, skimmable. NEVER say 'no caption available' — write engaging copy instead.",
       "instagram_url": "https://instagram.com/...",
-      "author_username": "username"
+      "author_username": "username or null if unknown"
     }
   ],
   "big_picture": "2-3 sentence closing thought tying things together."
 }
 
-IMPORTANT: Return ONLY valid JSON. One section per post (or group very related posts). Sections array must cover ALL posts.
+IMPORTANT:
+- Return ONLY valid JSON
+- Create EXACTLY ${posts.length} sections, one per post
+- NEVER output "No caption available" or "Unknown" literally — transform missing data into engaging copy
+- author_username should be null (not "null" string) if the author is unknown
 `
 
   try {
@@ -125,20 +141,95 @@ IMPORTANT: Return ONLY valid JSON. One section per post (or group very related p
   }
 }
 
+// Fallback emojis and headlines for when AI is unavailable
+const fallbackEmojis = ['✨', '🔥', '💫', '⭐', '🎯', '💡', '🌟', '📸', '🎬', '👀']
+const fallbackHeadlinesWithCaption = [
+  'WORTH A SECOND LOOK',
+  'THIS ONE STOOD OUT',
+  'SAVED FOR LATER',
+  'CAUGHT YOUR EYE',
+  'ONE TO REMEMBER',
+]
+const fallbackHeadlinesReel = [
+  'REEL TALK',
+  'ON REPEAT',
+  'SCROLL STOPPER',
+  'MUST-SEE REEL',
+  'VIDEO GOLD',
+]
+const fallbackHeadlinesPhoto = [
+  'VISUAL INSPO',
+  'PICTURE PERFECT',
+  'FRAME WORTHY',
+  'AESTHETIC GOALS',
+  'CAPTURED MOMENT',
+]
+const fallbackBodies = [
+  'You saved this one for a reason. <b>Tap through to see what caught your attention</b> — sometimes your feed knows what you need.',
+  'This made the cut in your scroll session. <b>Worth another look</b> when you have a moment.',
+  'Something about this one made you stop scrolling. <b>Check it out</b> and remember why.',
+  'Your past self saved this for your future self. <b>Time to see what the fuss was about</b>.',
+  'This landed in your saves — <b>a sign it deserves your attention</b>.',
+]
+
 export function generateFallbackNewsletter(posts: SavedPost[]): NewsletterContent {
+  const greetings = [
+    "Here's what you saved today.",
+    "Your saved posts, ready to revisit.",
+    "Look what made it to your digest.",
+    "The good stuff from your feed.",
+  ]
+
   return {
-    subject_line: `Your daily urdigest: ${posts.length} posts`,
-    greeting: "Here's what you saved today.",
-    sections: posts.map((post) => ({
-      emoji: '📌',
-      headline: post.caption
-        ? post.caption.slice(0, 60) + (post.caption.length > 60 ? '...' : '')
-        : `Post by @${post.author_username || 'unknown'}`,
-      body: post.caption || 'No caption available for this post.',
-      instagram_url: post.instagram_url,
-      author_username: post.author_username,
-    })),
-    big_picture: '',
+    subject_line: posts.length === 1
+      ? "You saved something good ✨"
+      : `${posts.length} posts you saved — take a look`,
+    greeting: greetings[Math.floor(Math.random() * greetings.length)],
+    sections: posts.map((post, index) => {
+      const isReel = post.instagram_url?.includes('/reel/') ||
+                     post.post_type === 'reel' ||
+                     post.post_type === 'video'
+      const hasCaption = post.caption && post.caption.trim().length > 0
+      const hasAuthor = post.author_username && post.author_username.trim().length > 0
+
+      // Pick emoji based on index for variety
+      const emoji = fallbackEmojis[index % fallbackEmojis.length]
+
+      // Pick headline based on content type and whether we have a caption
+      let headlines: string[]
+      if (hasCaption) {
+        headlines = fallbackHeadlinesWithCaption
+      } else if (isReel) {
+        headlines = fallbackHeadlinesReel
+      } else {
+        headlines = fallbackHeadlinesPhoto
+      }
+      const headline = headlines[index % headlines.length]
+
+      // Create body - use caption if available, otherwise engaging fallback
+      let body: string
+      if (hasCaption) {
+        // Truncate caption and add some editorial flair
+        const truncatedCaption = post.caption!.length > 200
+          ? post.caption!.slice(0, 200) + '...'
+          : post.caption!
+        body = truncatedCaption
+      } else {
+        // Use engaging fallback copy
+        body = fallbackBodies[index % fallbackBodies.length]
+      }
+
+      return {
+        emoji,
+        headline,
+        body,
+        instagram_url: post.instagram_url,
+        author_username: hasAuthor ? post.author_username : null,
+      }
+    }),
+    big_picture: posts.length > 1
+      ? "That's a wrap on today's saves. Your feed is a reflection of what inspires you — keep curating the good stuff."
+      : '',
   }
 }
 
