@@ -6,11 +6,11 @@ import { z } from 'zod'
 export const dynamic = 'force-dynamic'
 
 const SharingSettingsSchema = z.object({
-  digest_name: z.string().max(100).optional(),
-  digest_description: z.string().max(500).optional(),
+  digest_name: z.string().max(100).nullable().optional(),
+  digest_description: z.string().max(500).nullable().optional(),
   follow_slug: z.string().min(3).max(60).regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, {
     message: 'Slug must be lowercase letters, numbers, and hyphens only (no leading/trailing hyphens)',
-  }).optional(),
+  }).nullable().optional(),
   sharing_enabled: z.boolean().optional(),
 })
 
@@ -26,7 +26,7 @@ export async function GET() {
 
     const { data: profile, error } = await supabaseAdmin
       .from('users')
-      .select('digest_name, digest_description, follow_slug, sharing_enabled, follower_count')
+      .select('digest_name, digest_description, follow_slug, sharing_enabled, follower_count, instagram_username')
       .eq('id', user.id)
       .single()
 
@@ -52,26 +52,39 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
     const settings = SharingSettingsSchema.parse(body)
 
-    // If slug is being set, check uniqueness
-    if (settings.follow_slug) {
-      const { data: existing } = await supabaseAdmin
-        .from('users')
-        .select('id')
-        .eq('follow_slug', settings.follow_slug)
-        .neq('id', user.id)
-        .single()
+    // Build update object
+    const update: Record<string, any> = {}
+    if (settings.sharing_enabled !== undefined) update.sharing_enabled = settings.sharing_enabled
+    if (settings.digest_name !== undefined) update.digest_name = settings.digest_name || null
+    if (settings.digest_description !== undefined) update.digest_description = settings.digest_description || null
+    if (settings.follow_slug !== undefined) {
+      const slug = settings.follow_slug
+      if (slug) {
+        // Check uniqueness
+        const { data: existing } = await supabaseAdmin
+          .from('users')
+          .select('id')
+          .eq('follow_slug', slug)
+          .neq('id', user.id)
+          .single()
 
-      if (existing) {
-        return NextResponse.json(
-          { error: 'This URL slug is already taken' },
-          { status: 409 }
-        )
+        if (existing) {
+          return NextResponse.json(
+            { error: 'This URL slug is already taken' },
+            { status: 409 }
+          )
+        }
       }
+      update.follow_slug = slug || null
+    }
+
+    if (Object.keys(update).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
     }
 
     const { data: updated, error } = await supabaseAdmin
       .from('users')
-      .update(settings)
+      .update(update)
       .eq('id', user.id)
       .select('digest_name, digest_description, follow_slug, sharing_enabled, follower_count')
       .single()
