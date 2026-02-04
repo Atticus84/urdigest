@@ -1,4 +1,4 @@
-import { NewsletterContent } from '@/lib/ai/summarize'
+import { NewsletterContent, NewsletterSection } from '@/lib/ai/summarize'
 
 interface DigestEmailProps {
   newsletter: NewsletterContent
@@ -9,6 +9,59 @@ interface DigestEmailProps {
     creatorName: string
     followSlug?: string | null
   }
+}
+
+// Helper to generate anchor ID from section headline
+function generateAnchorId(headline: string, index: number): string {
+  return `section-${index}`
+}
+
+// Helper to organize sections into categories for TOC
+interface SectionGroup {
+  name: string
+  emoji: string
+  sections: Array<NewsletterSection & { index: number }>
+}
+
+function organizeSections(sections: NewsletterSection[]): SectionGroup[] {
+  const groups: SectionGroup[] = []
+  const featured: Array<NewsletterSection & { index: number }> = []
+  const reelsVideos: Array<NewsletterSection & { index: number }> = []
+  const carousels: Array<NewsletterSection & { index: number }> = []
+  const quickHits: Array<NewsletterSection & { index: number }> = []
+
+  sections.forEach((section, index) => {
+    const contentType = section.content_type_label?.toLowerCase() || ''
+    const sectionWithIndex = { ...section, index }
+
+    // Categorize based on content type
+    if (index === 0) {
+      // First item is always featured
+      featured.push(sectionWithIndex)
+    } else if (contentType.includes('reel') || contentType.includes('video')) {
+      reelsVideos.push(sectionWithIndex)
+    } else if (contentType.includes('carousel')) {
+      carousels.push(sectionWithIndex)
+    } else {
+      quickHits.push(sectionWithIndex)
+    }
+  })
+
+  // Build groups based on what we have
+  if (featured.length > 0) {
+    groups.push({ name: 'Featured', emoji: '⭐', sections: featured })
+  }
+  if (reelsVideos.length > 0) {
+    groups.push({ name: 'Reels & Videos', emoji: '🎬', sections: reelsVideos })
+  }
+  if (carousels.length > 0) {
+    groups.push({ name: 'Carousels & Visuals', emoji: '📸', sections: carousels })
+  }
+  if (quickHits.length > 0) {
+    groups.push({ name: 'Quick Hits', emoji: '⚡', sections: quickHits })
+  }
+
+  return groups
 }
 
 // Morning Brew-inspired color palette
@@ -38,6 +91,8 @@ const categoryColors = [
 export function DigestEmail({ newsletter, date, postCount, followerContext }: DigestEmailProps) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
   const isFollower = !!followerContext
+  const sectionGroups = organizeSections(newsletter.sections)
+  const estimatedReadTime = Math.max(1, Math.ceil(postCount * 1.5)) // ~1.5 min per post
 
   return `
 <!DOCTYPE html>
@@ -85,60 +140,167 @@ export function DigestEmail({ newsletter, date, postCount, followerContext }: Di
             <td>
               <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${colors.white}; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
 
-                <!-- Greeting section -->
+                <!-- Hero Intro Section -->
                 <tr>
-                  <td style="padding: 32px 32px 16px;">
-                    <p style="margin: 0 0 16px 0; font-size: 18px; color: ${colors.text}; line-height: 1.6; font-weight: 500;">${newsletter.greeting}</p>
+                  <td style="padding: 32px 32px 24px;">
+                    <!-- Greeting -->
+                    <p style="margin: 0 0 20px 0; font-size: 20px; color: ${colors.text}; line-height: 1.5; font-weight: 600;">${newsletter.greeting}</p>
+
+                    <!-- Stats badges -->
                     <table cellpadding="0" cellspacing="0">
                       <tr>
-                        <td style="background-color: ${colors.primary}; border-radius: 20px; padding: 6px 16px;">
-                          <span style="font-size: 12px; font-weight: 700; color: ${colors.white}; text-transform: uppercase; letter-spacing: 0.5px;">${postCount} ${postCount === 1 ? 'post' : 'posts'} in today's digest</span>
+                        <td style="background-color: ${colors.primary}; border-radius: 20px; padding: 6px 16px; margin-right: 8px;">
+                          <span style="font-size: 12px; font-weight: 700; color: ${colors.white}; text-transform: uppercase; letter-spacing: 0.5px;">📬 ${postCount} ${postCount === 1 ? 'post' : 'posts'}</span>
+                        </td>
+                        <td style="width: 8px;"></td>
+                        <td style="background-color: ${colors.cardBg}; border: 1px solid ${colors.border}; border-radius: 20px; padding: 6px 16px;">
+                          <span style="font-size: 12px; font-weight: 700; color: ${colors.textSecondary}; text-transform: uppercase; letter-spacing: 0.5px;">⏱️ ${estimatedReadTime} min read</span>
                         </td>
                       </tr>
                     </table>
                   </td>
                 </tr>
+
+                ${sectionGroups.length > 1 ? `
+                <!-- Table of Contents -->
+                <tr>
+                  <td style="padding: 0 32px 24px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${colors.cardBg}; border-radius: 8px; border: 1px solid ${colors.border};">
+                      <tr>
+                        <td style="padding: 20px 24px;">
+                          <p style="margin: 0 0 12px 0; font-size: 13px; font-weight: 700; color: ${colors.textSecondary}; text-transform: uppercase; letter-spacing: 0.8px;">In this issue</p>
+                          ${sectionGroups.map((group) => `
+                            <p style="margin: 0 0 8px 0; font-size: 15px; line-height: 1.6;">
+                              <a href="#section-${group.sections[0].index}" style="color: ${colors.primary}; text-decoration: none; font-weight: 600;">
+                                ${group.emoji} ${group.name}
+                                <span style="color: ${colors.textMuted}; font-weight: 400; font-size: 13px;"> (${group.sections.length})</span>
+                              </a>
+                            </p>
+                          `).join('')}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                ` : ''}
 
                 <!-- Divider -->
                 <tr>
                   <td style="padding: 0 32px;">
-                    <hr style="margin: 16px 0; border: 0; border-top: 1px solid ${colors.border};">
+                    <hr style="margin: 0 0 16px 0; border: 0; border-top: 2px solid ${colors.border};">
                   </td>
                 </tr>
 
-                <!-- Content sections -->
-                ${newsletter.sections.map((section, index) => {
-                  const categoryColor = categoryColors[index % categoryColors.length]
-                  return `
-                <tr>
-                  <td style="padding: 0 32px;">
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="padding: 24px 0;">
-                          <!-- Category label -->
-                          <table cellpadding="0" cellspacing="0" style="margin-bottom: 12px;">
-                            <tr>
-                              <td style="background-color: ${categoryColor}; border-radius: 4px; padding: 4px 10px;">
-                                <span style="font-size: 11px; font-weight: 700; color: ${colors.white}; text-transform: uppercase; letter-spacing: 0.5px;">${section.emoji} ${section.author_username ? `@${section.author_username}` : 'Featured'}</span>
-                              </td>
-                            </tr>
-                          </table>
+                <!-- Content Sections (organized by category) -->
+                ${sectionGroups.map((group, groupIndex) => `
+                  <!-- Section Group: ${group.name} -->
+                  <tr>
+                    <td style="padding: ${groupIndex === 0 ? '16px' : '32px'} 32px 16px;">
+                      <table cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td style="background-color: ${colors.text}; border-radius: 4px; padding: 6px 14px;">
+                            <span style="font-size: 12px; font-weight: 700; color: ${colors.white}; text-transform: uppercase; letter-spacing: 1px;">${group.emoji} ${group.name}</span>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
 
-                          <!-- Headline -->
-                          <h2 style="margin: 0 0 14px 0; font-size: 20px; font-weight: 700; color: ${colors.text}; line-height: 1.3;">${section.headline}</h2>
+                  ${group.sections.map((section, sectionIndex) => {
+                    const categoryColor = categoryColors[section.index % categoryColors.length]
+                    const hasTakeaways = section.takeaways && section.takeaways.length > 0
+                    const hasLede = section.lede && section.lede.length > 0
+                    const hasTitle = section.title && section.title.length > 0
 
-                          <!-- Body -->
-                          <p style="margin: 0 0 16px 0; font-size: 16px; color: ${colors.textSecondary}; line-height: 1.7;">${section.body}</p>
+                    return `
+                  <tr id="${generateAnchorId(section.headline, section.index)}">
+                    <td style="padding: 0 32px;">
+                      <table width="100%" cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td style="padding: 20px 0 24px;">
+                            <!-- Content type pill and author badge -->
+                            <table cellpadding="0" cellspacing="0" style="margin-bottom: 14px;">
+                              <tr>
+                                ${section.content_type_label ? `
+                                <td style="background-color: ${categoryColor}; border-radius: 4px; padding: 5px 11px; margin-right: 8px;">
+                                  <span style="font-size: 10px; font-weight: 700; color: ${colors.white}; text-transform: uppercase; letter-spacing: 0.8px;">${section.content_type_emoji || section.emoji} ${section.content_type_label}</span>
+                                </td>
+                                ` : ''}
+                                ${section.author_username ? `
+                                <td style="width: 8px;"></td>
+                                <td style="border: 1.5px solid ${categoryColor}; border-radius: 4px; padding: 4px 10px;">
+                                  <span style="font-size: 10px; font-weight: 600; color: ${categoryColor}; text-transform: uppercase; letter-spacing: 0.5px;">@${section.author_username}</span>
+                                </td>
+                                ` : ''}
+                              </tr>
+                            </table>
 
-                          <!-- CTA Link -->
-                          <a href="${section.instagram_url}" style="display: inline-block; font-size: 14px; font-weight: 600; color: ${colors.primary}; text-decoration: none; border-bottom: 2px solid ${colors.primary}; padding-bottom: 2px;">View on Instagram &rarr;</a>
-                        </td>
-                      </tr>
-                    </table>
-                    ${index < newsletter.sections.length - 1 ? `<hr style="margin: 0; border: 0; border-top: 1px solid ${colors.border};">` : ''}
-                  </td>
-                </tr>
-                `}).join('')}
+                            <!-- Title (new editorial format) -->
+                            ${hasTitle ? `
+                            <h2 style="margin: 0 0 12px 0; font-size: 22px; font-weight: 700; color: ${colors.text}; line-height: 1.3;">${section.title}</h2>
+                            ` : `
+                            <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 700; color: ${colors.text}; line-height: 1.3; text-transform: uppercase; letter-spacing: -0.5px;">${section.headline}</h2>
+                            `}
+
+                            <!-- Lede (1-2 sentence summary) -->
+                            ${hasLede ? `
+                            <p style="margin: 0 0 16px 0; font-size: 17px; color: ${colors.text}; line-height: 1.6; font-weight: 500;">${section.lede}</p>
+                            ` : ''}
+
+                            <!-- Body -->
+                            <p style="margin: 0 0 ${hasTakeaways ? '16px' : '18px'} 0; font-size: 16px; color: ${colors.textSecondary}; line-height: 1.7;">${section.body}</p>
+
+                            <!-- Takeaways (bullet points) -->
+                            ${hasTakeaways ? `
+                            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 18px; background-color: ${colors.cardBg}; border-left: 3px solid ${categoryColor}; border-radius: 0 6px 6px 0;">
+                              <tr>
+                                <td style="padding: 16px 20px;">
+                                  <p style="margin: 0 0 10px 0; font-size: 12px; font-weight: 700; color: ${colors.textSecondary}; text-transform: uppercase; letter-spacing: 0.8px;">Key Takeaways</p>
+                                  ${section.takeaways!.map(takeaway => `
+                                    <p style="margin: 0 0 8px 0; font-size: 15px; color: ${colors.text}; line-height: 1.5; padding-left: 0;">
+                                      <span style="color: ${categoryColor}; font-weight: 700; margin-right: 8px;">•</span>${takeaway}
+                                    </p>
+                                  `).join('')}
+                                </td>
+                              </tr>
+                            </table>
+                            ` : ''}
+
+                            <!-- Sources used (if available) -->
+                            ${section.sources_attribution ? `
+                            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 16px; background-color: #f8f9fa; border-radius: 6px;">
+                              <tr>
+                                <td style="padding: 12px 16px;">
+                                  <p style="margin: 0; font-size: 12px; color: ${colors.textSecondary}; line-height: 1.5;">
+                                    <strong style="text-transform: uppercase; letter-spacing: 0.5px; color: ${colors.text};">Sources:</strong>
+                                    ${section.sources_attribution}
+                                  </p>
+                                </td>
+                              </tr>
+                            </table>
+                            ` : ''}
+
+                            <!-- Why you saved it (if available) -->
+                            ${section.why_you_saved_it ? `
+                            <p style="margin: 0 0 16px 0; font-size: 14px; color: ${colors.textMuted}; line-height: 1.6; font-style: italic;">💭 ${section.why_you_saved_it}</p>
+                            ` : ''}
+
+                            <!-- CTA Button (enhanced) -->
+                            <table cellpadding="0" cellspacing="0">
+                              <tr>
+                                <td style="background-color: ${colors.primary}; border-radius: 6px; padding: 12px 20px;">
+                                  <a href="${section.instagram_url}" style="display: block; font-size: 14px; font-weight: 600; color: ${colors.white}; text-decoration: none; text-align: center;">View on Instagram &rarr;</a>
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+                      ${sectionIndex < group.sections.length - 1 || groupIndex < sectionGroups.length - 1 ? `<hr style="margin: 0; border: 0; border-top: 1px solid ${colors.border};">` : ''}
+                    </td>
+                  </tr>
+                  `}).join('')}
+                `).join('')}
 
                 <!-- Big Picture -->
                 ${newsletter.big_picture ? `

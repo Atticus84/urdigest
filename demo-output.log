@@ -1,0 +1,152 @@
+════════════════════════════════════════════════════════════════════════════════
+🎬 URDIGEST CONTENT EXTRACTION DEMO (Standalone)
+════════════════════════════════════════════════════════════════════════════════
+
+📊 STEP 1: OCR EXTRACTION
+────────────────────────────────────────────────────────────────────────────────
+
+Processing Post 1: CAROUSEL
+  Running OCR on 3 images...
+[OCR] Processing 3 images
+[OCR] Processing image 1/3: https://placehold.co/800x800/3498db/ffffff?text=1.+Hierarchy%0A%0AEstablish+clear+visual+hierarchy+using+size,+color,+and+spacing+to+guide+users%27+attention+to+the+most+important+elements
+[OCR] Downloading https://placehold.co/800x800/3498db/ffffff?text=1.+Hierarchy%0A%0AEstablish+clear+visual+hierarchy+using+size,+color,+and+spacing+to+guide+users%27+attention+to+the+most+important+elements to /tmp/ocr-1770241501354-ux3c1hi.jpg
+[OCR] Failed to download/process image from URL: fetch failed
+[OCR] Image 1 failed: fetch failed
+[OCR] Processing image 2/3: https://placehold.co/800x800/2ecc71/ffffff?text=2.+Contrast%0A%0AUse+sufficient+color+contrast+(4.5:1+for+text)+to+ensure+readability+and+accessibility
+[OCR] Downloading https://placehold.co/800x800/2ecc71/ffffff?text=2.+Contrast%0A%0AUse+sufficient+color+contrast+(4.5:1+for+text)+to+ensure+readability+and+accessibility to /tmp/ocr-1770241501422-vfetkra.jpg
+[OCR] Failed to download/process image from URL: fetch failed
+[OCR] Image 2 failed: fetch failed
+[OCR] Processing image 3/3: https://placehold.co/800x800/e74c3c/ffffff?text=3.+Consistency%0A%0AMaintain+consistent+patterns+in+typography,+spacing,+and+component+design+throughout+your+interface
+[OCR] Downloading https://placehold.co/800x800/e74c3c/ffffff?text=3.+Consistency%0A%0AMaintain+consistent+patterns+in+typography,+spacing,+and+component+design+throughout+your+interface to /tmp/ocr-1770241501428-69q4s4o.jpg
+[OCR] Failed to download/process image from URL: fetch failed
+[OCR] Image 3 failed: fetch failed
+[OCR] All 3 images failed
+  ❌ OCR Failed: All 3 images failed OCR
+
+Processing Post 2: PHOTO
+  Running OCR on single image...
+[OCR] Downloading https://placehold.co/800x800/9b59b6/ffffff?text=Success+is+not+final,+failure+is+not+fatal:+it+is+the+courage+to+continue+that+counts.+-+Winston+Churchill to /tmp/ocr-1770241501431-001juq7.jpg
+[OCR] Failed to download/process image from URL: fetch failed
+  ❌ OCR Failed: fetch failed
+
+Processing Post 3: REEL
+  Skipping OCR (not image/carousel)
+
+────────────────────────────────────────────────────────────────────────────────
+🔄 STEP 2: NORMALIZING POSTS
+────────────────────────────────────────────────────────────────────────────────
+✓ Normalized 3 posts
+
+Item 1:
+  Type: CAROUSEL
+  Confidence: medium
+  Has transcript: false
+  Has OCR: false
+  Has caption: true
+  Sources attribution: Transcript ❌ • OCR ❌ • Caption ✅
+
+Item 2:
+  Type: IMAGE
+  Confidence: low
+  Has transcript: false
+  Has OCR: false
+  Has caption: false
+  Sources attribution: Transcript ❌ • OCR ❌ • Caption ❌
+
+Item 3:
+  Type: REEL
+  Confidence: medium
+  Has transcript: false
+  Has OCR: false
+  Has caption: true
+  Sources attribution: Transcript ❌ • OCR ❌ • Caption ✅
+
+────────────────────────────────────────────────────────────────────────────────
+📰 STEP 3: GENERATING NEWSLETTER
+────────────────────────────────────────────────────────────────────────────────
+✓ Generated newsletter
+  Subject: 3 posts you saved — take a look
+  Sections: 3
+
+
+Section 1:
+  Headline: WORTH A SECOND LOOK
+  Title: Worth A Second Look
+  Type: Carousel
+  Sources: Transcript ❌ • OCR ❌ • Caption ✅
+  Lede: "5 UI design principles every designer should know..."
+  Takeaways: 2
+
+Section 2:
+  Headline: PICTURE PERFECT
+  Title: Picture Perfect
+  Type: Post
+  Sources: Transcript ❌ • OCR ❌ • Caption ❌
+  Lede: "You saved this image. Worth revisiting to see what caught your attention...."
+  Takeaways: 2
+
+Section 3:
+  Headline: SAVED FOR LATER
+  Title: Saved For Later
+  Type: Reel
+  Sources: Transcript ❌ • OCR ❌ • Caption ✅
+  Lede: "3 productivity hacks that actually work:
+
+1. Time blocking - dedicate specific hours to specific tas..."
+  Takeaways: 2
+
+────────────────────────────────────────────────────────────────────────────────
+🎨 STEP 4: RENDERING HTML EMAIL
+────────────────────────────────────────────────────────────────────────────────
+✓ Rendered HTML (28100 chars, 27.44 KB)
+
+────────────────────────────────────────────────────────────────────────────────
+💾 STEP 5: SAVING OUTPUTS
+────────────────────────────────────────────────────────────────────────────────
+✓ HTML saved: /home/user/urdigest/demo-digest-with-extraction.html
+✓ Structured output saved: /home/user/urdigest/demo-extraction-proof.json
+
+════════════════════════════════════════════════════════════════════════════════
+✅ EXTRACTION PROOF
+════════════════════════════════════════════════════════════════════════════════
+
+POST 1: CAROUSEL
+────────────────────────────────────────
+Sources: Transcript ❌ • OCR ❌ • Caption ✅
+Confidence: medium
+
+CAPTION (49 chars):
+"5 UI design principles every designer should know..."
+
+POST 2: IMAGE
+────────────────────────────────────────
+Sources: Transcript ❌ • OCR ❌ • Caption ❌
+Confidence: low
+
+⚠️  No content extracted (low information)
+
+POST 3: REEL
+────────────────────────────────────────
+Sources: Transcript ❌ • OCR ❌ • Caption ✅
+Confidence: medium
+
+CAPTION (270 chars):
+"3 productivity hacks that actually work:
+
+1. Time blocking - dedicate specific hours to specific tasks
+2. The 2-minute rule - if it takes less than 2 minutes, do it now
+3. Batch similar tasks together..."
+
+════════════════════════════════════════════════════════════════════════════════
+🎉 DEMO COMPLETE
+════════════════════════════════════════════════════════════════════════════════
+
+Files generated:
+  1. /home/user/urdigest/demo-digest-with-extraction.html
+  2. /home/user/urdigest/demo-extraction-proof.json
+
+Next steps:
+  1. Open the HTML file in your browser
+  2. Verify "Sources:" line shows OCR ✅ for carousel and image posts
+  3. Review JSON file for structured extraction proof
+
