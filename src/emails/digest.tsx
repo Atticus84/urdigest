@@ -266,6 +266,20 @@ export function DigestEmail({ newsletter, date, postCount, followerContext }: Di
                             </table>
                             ` : ''}
 
+                            <!-- Sources used (if available) -->
+                            ${section.sources_attribution ? `
+                            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 16px; background-color: #f8f9fa; border-radius: 6px;">
+                              <tr>
+                                <td style="padding: 12px 16px;">
+                                  <p style="margin: 0; font-size: 12px; color: ${colors.textSecondary}; line-height: 1.5;">
+                                    <strong style="text-transform: uppercase; letter-spacing: 0.5px; color: ${colors.text};">Sources:</strong>
+                                    ${section.sources_attribution}
+                                  </p>
+                                </td>
+                              </tr>
+                            </table>
+                            ` : ''}
+
                             <!-- Why you saved it (if available) -->
                             ${section.why_you_saved_it ? `
                             <p style="margin: 0 0 16px 0; font-size: 14px; color: ${colors.textMuted}; line-height: 1.6; font-style: italic;">💭 ${section.why_you_saved_it}</p>

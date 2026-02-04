@@ -1,0 +1,78 @@
+{
+  "extraction_proof": [
+    {
+      "post_id": "demo-001",
+      "type": "CAROUSEL",
+      "confidence": "medium",
+      "sources_attribution": "Transcript ❌ • OCR ❌ • Caption ✅",
+      "has_transcript": false,
+      "has_ocr": false,
+      "has_caption": true,
+      "transcript_text": null,
+      "ocr_text": null,
+      "caption_text": "5 UI design principles every designer should know",
+      "extracted_summary": "Carousel by @designpro [Caption] \"5 UI design principles every designer should know\""
+    },
+    {
+      "post_id": "demo-002",
+      "type": "IMAGE",
+      "confidence": "low",
+      "sources_attribution": "Transcript ❌ • OCR ❌ • Caption ❌",
+      "has_transcript": false,
+      "has_ocr": false,
+      "has_caption": false,
+      "transcript_text": null,
+      "ocr_text": null,
+      "caption_text": null,
+      "extracted_summary": "Image by @quotesdaily"
+    },
+    {
+      "post_id": "demo-003",
+      "type": "REEL",
+      "confidence": "medium",
+      "sources_attribution": "Transcript ❌ • OCR ❌ • Caption ✅",
+      "has_transcript": false,
+      "has_ocr": false,
+      "has_caption": true,
+      "transcript_text": null,
+      "ocr_text": null,
+      "caption_text": "3 productivity hacks that actually work:\n\n1. Time blocking - dedicate specific hours to specific tasks\n2. The 2-minute rule - if it takes less than 2 minutes, do it now\n3. Batch similar tasks together - context switching kills productivity\n\nWhich one will you try first?",
+      "extracted_summary": "Reel by @productivityguru [Caption] \"3 productivity hacks that actually work:\n\n1. Time blocking - dedicate specific hours to specific tas...\""
+    }
+  ],
+  "newsletter_sections": [
+    {
+      "headline": "WORTH A SECOND LOOK",
+      "title": "Worth A Second Look",
+      "lede": "5 UI design principles every designer should know",
+      "takeaways": [
+        "Review the full caption for context",
+        "Content from @designpro"
+      ],
+      "sources_attribution": "Transcript ❌ • OCR ❌ • Caption ✅",
+      "type": "Carousel"
+    },
+    {
+      "headline": "PICTURE PERFECT",
+      "title": "Picture Perfect",
+      "lede": "You saved this image. Worth revisiting to see what caught your attention.",
+      "takeaways": [
+        "Tap through to remember why you saved this",
+        "Post content worth reviewing"
+      ],
+      "sources_attribution": "Transcript ❌ • OCR ❌ • Caption ❌",
+      "type": "Post"
+    },
+    {
+      "headline": "SAVED FOR LATER",
+      "title": "Saved For Later",
+      "lede": "3 productivity hacks that actually work:\n\n1. Time blocking - dedicate specific hours to specific tasks\n2. The 2-minute rule - if it takes less than 2 ...",
+      "takeaways": [
+        "Review the full caption for context",
+        "Content from @productivityguru"
+      ],
+      "sources_attribution": "Transcript ❌ • OCR ❌ • Caption ✅",
+      "type": "Reel"
+    }
+  ]
+}

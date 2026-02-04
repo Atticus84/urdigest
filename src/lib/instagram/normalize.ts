@@ -76,18 +76,34 @@ export function detectInstagramContentType(
 
 /**
  * Calculate confidence level based on available metadata
+ * Prioritizes extracted content (transcript/OCR) over captions
  */
 export function calculateConfidence(item: {
   captionText: string | null
   creatorHandle: string | null
   thumbnailUrl: string | null
   igType: InstagramContentType
+  transcriptText?: string | null
+  ocrText?: string | null
 }): ContentConfidence {
   let score = 0
 
-  // Caption adds significant value
-  if (item.captionText && item.captionText.length > 20) {
+  // Transcript/OCR adds HIGHEST value (primary sources)
+  if (item.transcriptText && item.transcriptText.length > 50) {
+    score += 5 // Substantial transcript
+  } else if (item.transcriptText && item.transcriptText.length > 0) {
     score += 3
+  }
+
+  if (item.ocrText && item.ocrText.length > 50) {
+    score += 4 // Substantial OCR text
+  } else if (item.ocrText && item.ocrText.length > 0) {
+    score += 2
+  }
+
+  // Caption adds value (but less than transcript/OCR)
+  if (item.captionText && item.captionText.length > 20) {
+    score += 2
   } else if (item.captionText && item.captionText.length > 0) {
     score += 1
   }
@@ -107,22 +123,25 @@ export function calculateConfidence(item: {
     score += 1
   }
 
-  // Scoring:
-  // 7+ = high (caption + creator + thumbnail + type)
-  // 3-6 = medium (some metadata)
-  // 0-2 = low (minimal data)
-  if (score >= 7) return 'high'
-  if (score >= 3) return 'medium'
+  // Scoring (updated):
+  // 10+ = high (transcript/OCR + metadata)
+  // 5-9 = medium (some extracted content or good metadata)
+  // 0-4 = low (minimal data)
+  if (score >= 10) return 'high'
+  if (score >= 5) return 'medium'
   return 'low'
 }
 
 /**
- * Extract text summary from available metadata (caption, creator, type)
+ * Extract text summary from available metadata
+ * Prioritizes: transcript > OCR > caption
  */
 export function extractTextSummary(item: {
   captionText: string | null
   creatorHandle: string | null
   igType: InstagramContentType
+  transcriptText?: string | null
+  ocrText?: string | null
 }): string {
   const parts: string[] = []
 
@@ -135,13 +154,27 @@ export function extractTextSummary(item: {
     parts.push(`by @${item.creatorHandle}`)
   }
 
-  // Add caption preview if available
-  if (item.captionText) {
-    const captionPreview = item.captionText.length > 100
-      ? item.captionText.slice(0, 100).trim() + '...'
-      : item.captionText.trim()
-    if (captionPreview.length > 0) {
-      parts.push(`— "${captionPreview}"`)
+  // Prioritize extracted text: transcript > OCR > caption
+  let textSource: string | null = null
+  let sourceLabel = ''
+
+  if (item.transcriptText && item.transcriptText.trim().length > 0) {
+    textSource = item.transcriptText
+    sourceLabel = '[Transcript]'
+  } else if (item.ocrText && item.ocrText.trim().length > 0) {
+    textSource = item.ocrText
+    sourceLabel = '[OCR]'
+  } else if (item.captionText && item.captionText.trim().length > 0) {
+    textSource = item.captionText
+    sourceLabel = '[Caption]'
+  }
+
+  if (textSource) {
+    const preview = textSource.length > 100
+      ? textSource.slice(0, 100).trim() + '...'
+      : textSource.trim()
+    if (preview.length > 0) {
+      parts.push(`${sourceLabel} "${preview}"`)
     }
   }
 
@@ -186,31 +219,38 @@ export function normalizeInstagramPost(post: SavedPost): NormalizedDigestItem {
     mediaUrls
   )
 
+  // Extract enriched data from database
+  const transcriptText = post.transcript_text || null
+  const ocrText = post.ocr_text || null
+  const extractedMetadata = post.extracted_metadata ? (post.extracted_metadata as any) : null
+
   // Build normalized item
   const item: NormalizedDigestItem = {
     id: post.id,
     url: post.instagram_url,
     igType,
     creatorHandle: post.author_username || null,
-    creatorName: null, // Not currently available from oEmbed
+    creatorName: extractedMetadata?.creator_name || null,
     creatorProfileUrl: post.author_profile_url || null,
     postedAt: post.posted_at || null,
     thumbnailUrl: post.thumbnail_url || null,
     captionText: post.caption || null,
     mediaCount,
-    audioTitle: null, // Not available (would require video metadata extraction)
-    transcriptText: null, // Not available (would require transcription service)
-    ocrText: null, // Not available (would require OCR service)
+    audioTitle: extractedMetadata?.audio_title || null,
+    transcriptText,
+    ocrText,
     extractedTextSummary: '',
-    confidence: 'low', // Will be calculated below
+    confidence: (post.content_confidence as ContentConfidence) || 'low',
     _rawPost: post,
   }
 
   // Generate extracted text summary
   item.extractedTextSummary = extractTextSummary(item)
 
-  // Calculate confidence
-  item.confidence = calculateConfidence(item)
+  // Re-calculate confidence if not already set
+  if (!post.content_confidence) {
+    item.confidence = calculateConfidence(item)
+  }
 
   return item
 }
@@ -246,4 +286,26 @@ export function getContentTypeEmoji(type: InstagramContentType): string {
     case 'IMAGE': return '🖼️'
     case 'UNKNOWN': return '💫'
   }
+}
+
+/**
+ * Generate sources attribution string for display in email
+ * Example: "Transcript ✅ OCR ❌ Caption ✅"
+ */
+export function generateSourcesAttribution(item: NormalizedDigestItem): string {
+  const parts: string[] = []
+
+  // Transcript
+  const hasTranscript = item.transcriptText && item.transcriptText.length > 0
+  parts.push(`Transcript ${hasTranscript ? '✅' : '❌'}`)
+
+  // OCR
+  const hasOCR = item.ocrText && item.ocrText.length > 0
+  parts.push(`OCR ${hasOCR ? '✅' : '❌'}`)
+
+  // Caption
+  const hasCaption = item.captionText && item.captionText.length > 0
+  parts.push(`Caption ${hasCaption ? '✅' : '❌'}`)
+
+  return parts.join(' • ')
 }

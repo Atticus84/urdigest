@@ -4,7 +4,8 @@ import {
   NormalizedDigestItem,
   normalizeInstagramPosts,
   getContentTypeLabel,
-  getContentTypeEmoji
+  getContentTypeEmoji,
+  generateSourcesAttribution
 } from '@/lib/instagram/normalize'
 
 let _openai: OpenAI | null = null
@@ -33,6 +34,7 @@ export interface NewsletterSection {
   why_you_saved_it?: string // 1 sentence guess based on content
   content_type_label?: string // "Reel", "Carousel", "Post", etc.
   content_type_emoji?: string // Type-specific emoji
+  sources_attribution?: string // "Transcript ✅ OCR ❌ Caption ✅"
 }
 
 export interface NewsletterContent {
@@ -55,15 +57,22 @@ export async function generateNewsletterFromNormalized(
 }> {
   const systemPrompt = `You are a witty, sharp newsletter editor writing a daily digest email in the style of Morning Brew. Your job is to transform saved Instagram posts into an engaging, editorial newsletter that people actually want to read.
 
+CRITICAL: USE EXTRACTED CONTENT
+You will receive posts with TRANSCRIPT (from video audio) and/or OCR TEXT (from images). ALWAYS prioritize this extracted content over captions:
+- If TRANSCRIPT is provided → summarize what was SAID in the video
+- If OCR TEXT is provided → summarize what TEXT APPEARS in the image/carousel
+- If only CAPTION is provided → summarize the caption
+- NEVER hallucinate content if transcript/OCR is missing
+
 CRITICAL OUTPUT FORMAT:
 Each section MUST include these fields in the JSON response:
 - emoji: One relevant emoji that fits the content
 - headline: ALL CAPS headline (3-6 words)
 - title: Short editorial headline (max 8 words, not all caps, engaging)
-- lede: 1-2 sentence summary in Morning Brew style (witty, conversational, informative)
-- takeaways: Array of 2-5 bullet points (actionable, memorable insights)
-- body: 60-100 word editorial write-up with <b>bold key phrases</b>
-- why_you_saved_it: One sentence explaining why the user likely saved this (based on content signals)
+- lede: 1-2 sentence summary in Morning Brew style (witty, conversational, informative) - MUST be based on TRANSCRIPT or OCR if available
+- takeaways: Array of 2-5 bullet points (actionable, memorable insights) - MUST extract from TRANSCRIPT or OCR if available
+- body: 60-100 word editorial write-up with <b>bold key phrases</b> - MUST use TRANSCRIPT or OCR content if available
+- why_you_saved_it: One sentence explaining why the user likely saved this (based on actual content)
 - content_type_label: Human-readable type ("Reel", "Carousel", "Post", "Video")
 - instagram_url: Full Instagram URL
 - author_username: Username or null if unknown
@@ -74,31 +83,29 @@ STYLE GUIDELINES:
 - Taper section lengths — start longer (~80-100 words), end shorter (~40-60 words).
 - Create EXACTLY ${items.length} sections, one for each post.
 
-HANDLING DIFFERENT CONTENT TYPES:
-- REELS: Focus on the video format, if caption mentions audio/music reference it
-- CAROUSELS: Acknowledge multiple images, mention visual storytelling
-- VIDEOS: Emphasize movement, action, or tutorial-style content
-- STATIC POSTS: Focus on the single image and caption message
+CONTENT SOURCE HANDLING:
+- TRANSCRIPT available: Summarize what was spoken/narrated in the video. Reference it naturally ("In this reel, they explain...", "The creator walks through...")
+- OCR TEXT available: Summarize text that appears on-screen in images. Reference it naturally ("The graphic shows...", "According to the text overlay...")
+- CAPTION only: Summarize the caption text
+- NO CONTENT: Use conservative, minimal language. Do NOT invent details. Say "Limited information available — worth viewing to see what caught your attention."
 
-HANDLING MISSING DATA (CRITICAL):
-- Low confidence content (missing caption/creator): Create curiosity-driven copy
-- For reels without caption: "This reel made the cut — worth a rewatch to see what caught your eye."
-- For images without caption: "A visual that spoke to you. Sometimes a picture says it all."
-- For posts with minimal info: "You saved this one for a reason — tap through to remember why."
-- NEVER output "No caption available" or "Unknown" literally — transform it into engaging copy.
-- Use conservative language when confidence is low: "Looks like...", "This appears to...", "Seems to be..."
+HANDLING DIFFERENT CONTENT TYPES:
+- REELS with TRANSCRIPT: Summarize the spoken content, highlight key quotes or insights
+- CAROUSELS with OCR: Summarize text across all images, note progression if applicable
+- VIDEOS with TRANSCRIPT: Focus on tutorial steps, explanations, or narrative
+- STATIC POSTS with OCR: Summarize any on-image text (quotes, infographics, etc.)
 
 TAKEAWAYS GUIDELINES:
+- Extract from TRANSCRIPT or OCR if available (real content, not speculation)
 - Make them actionable and memorable
-- Extract key insights or lessons from the content
-- If content is low-confidence, make takeaways about why it caught attention
+- If no extracted content, make takeaways about why the visual/creator caught attention
 - Format as short, punchy statements
 
 The greeting should be one punchy line. Examples: "Your feed had gems today.", "Look what you saved.", "The good stuff from your scroll session."
 
 The big_picture is a 2-3 sentence closing thought. Reference the variety of content they saved.
 
-The subject_line should be catchy and intriguing (max 60 chars). Don't reference specifics if data is missing — use general engaging lines.
+The subject_line should be catchy and intriguing (max 60 chars).
 
 Do NOT use markdown. Use <b> tags for bold only.`
 
@@ -109,15 +116,39 @@ ${items.map((item, i) => {
   const confidenceNote = item.confidence === 'low'
     ? '(⚠️ Limited data - use conservative language)'
     : ''
+
+  // Build content section prioritizing transcript > OCR > caption
+  let contentSection = ''
+  const sources = []
+
+  if (item.transcriptText && item.transcriptText.length > 0) {
+    contentSection += `\nTRANSCRIPT (from video audio):\n${item.transcriptText}\n`
+    sources.push('Transcript')
+  }
+
+  if (item.ocrText && item.ocrText.length > 0) {
+    contentSection += `\nOCR TEXT (from image):\n${item.ocrText}\n`
+    sources.push('OCR')
+  }
+
+  if (item.captionText && item.captionText.length > 0) {
+    contentSection += `\nCAPTION:\n${item.captionText}\n`
+    sources.push('Caption')
+  }
+
+  if (contentSection === '') {
+    contentSection = '\n(No text content available - minimal metadata only)\n'
+  }
+
+  const sourcesUsed = sources.length > 0 ? sources.join(' + ') : 'None'
+
   return `
 POST ${i + 1}: ${confidenceNote}
 URL: ${item.url}
 Type: ${item.igType}${item.mediaCount > 1 ? ` (${item.mediaCount} images)` : ''}
 Author: ${item.creatorHandle || '(not available)'}
-Caption: ${item.captionText || '(not available)'}
 Confidence: ${item.confidence}
-Extracted Summary: ${item.extractedTextSummary}
----
+Sources Available: ${sourcesUsed}${contentSection}---
 `}).join('\n')}
 
 Return a JSON object with this EXACT structure (all fields required):
@@ -189,13 +220,14 @@ IMPORTANT:
       throw new Error('AI returned no sections')
     }
 
-    // Enrich sections with content type data from normalized items
+    // Enrich sections with content type data and sources attribution from normalized items
     newsletter.sections = newsletter.sections.map((section, index) => {
       const item = items[index]
       return {
         ...section,
         content_type_emoji: section.content_type_emoji || getContentTypeEmoji(item.igType),
         content_type_label: section.content_type_label || getContentTypeLabel(item.igType),
+        sources_attribution: generateSourcesAttribution(item),
       }
     })
 
@@ -333,6 +365,7 @@ export function generateFallbackNewsletterFromNormalized(items: NormalizedDigest
           : 'The visual or content caught your eye while scrolling.',
         content_type_label: getContentTypeLabel(item.igType),
         content_type_emoji: getContentTypeEmoji(item.igType),
+        sources_attribution: generateSourcesAttribution(item),
         instagram_url: item.url,
         author_username: item.creatorHandle,
       }
