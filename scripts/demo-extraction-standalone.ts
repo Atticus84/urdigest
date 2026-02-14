@@ -125,7 +125,7 @@ async function runDemo() {
     console.log(`\nProcessing Post ${i + 1}: ${post.post_type?.toUpperCase()}`)
 
     if (post.post_type === 'carousel' && post.media_urls) {
-      const imageUrls = Array.isArray(post.media_urls) ? post.media_urls : []
+      const imageUrls = (Array.isArray(post.media_urls) ? post.media_urls : []).filter((u): u is string => typeof u === 'string')
       console.log(`  Running OCR on ${imageUrls.length} images...`)
 
       const ocrResult = await extractTextFromMultipleImages(imageUrls)
