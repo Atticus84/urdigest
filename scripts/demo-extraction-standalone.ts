@@ -125,7 +125,16 @@ async function runDemo() {
     console.log(`\nProcessing Post ${i + 1}: ${post.post_type?.toUpperCase()}`)
 
     if (post.post_type === 'carousel' && post.media_urls) {
-      const imageUrls = Array.isArray(post.media_urls) ? post.media_urls : []
+      // Type-guard: Extract string array from Json type
+      const mediaData = post.media_urls as any
+      let imageUrls: string[] = []
+
+      if (Array.isArray(mediaData)) {
+        imageUrls = mediaData.filter((url): url is string => typeof url === 'string')
+      } else if (typeof mediaData === 'object' && mediaData !== null && Array.isArray(mediaData.urls)) {
+        imageUrls = mediaData.urls.filter((url): url is string => typeof url === 'string')
+      }
+
       console.log(`  Running OCR on ${imageUrls.length} images...`)
 
       const ocrResult = await extractTextFromMultipleImages(imageUrls)
