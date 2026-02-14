@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 interface OEmbedData {
   version: string
@@ -21,34 +21,36 @@ export default function OEmbedDemoPage() {
   const [embedData, setEmbedData] = useState<OEmbedData | null>(null)
   const embedContainerRef = useRef<HTMLDivElement>(null)
 
-  const loadInstagramEmbed = useCallback(() => {
-    // Load or re-trigger Instagram's embed.js to render blockquotes
-    if (typeof window !== 'undefined') {
-      const win = window as any
-      if (win.instgrm?.Embeds) {
-        win.instgrm.Embeds.process()
-      } else {
-        // Load the script if not already present
-        const existingScript = document.querySelector(
-          'script[src*="instagram.com/embed.js"]'
-        )
-        if (!existingScript) {
-          const script = document.createElement('script')
-          script.src = 'https://www.instagram.com/embed.js'
-          script.async = true
-          document.body.appendChild(script)
-        }
-      }
-    }
-  }, [])
-
   useEffect(() => {
-    if (embedData?.html) {
-      // Give the DOM time to render the HTML before processing embeds
-      const timer = setTimeout(loadInstagramEmbed, 100)
-      return () => clearTimeout(timer)
+    if (!embedData?.html || !embedContainerRef.current) return
+
+    const container = embedContainerRef.current
+    // Inject the oEmbed HTML directly via the ref so React's virtual DOM
+    // doesn't interfere with the iframe that embed.js produces.
+    container.innerHTML = embedData.html
+
+    const win = window as any
+    if (win.instgrm?.Embeds) {
+      // Script already loaded — just re-process new blockquotes
+      win.instgrm.Embeds.process()
+    } else {
+      // First load: remove any stale script tag, then add a fresh one
+      // so its onload fires and auto-processes the blockquote.
+      document
+        .querySelectorAll('script[src*="instagram.com/embed.js"]')
+        .forEach((s) => s.remove())
+
+      const script = document.createElement('script')
+      script.src = 'https://www.instagram.com/embed.js'
+      script.async = true
+      document.body.appendChild(script)
     }
-  }, [embedData, loadInstagramEmbed])
+
+    return () => {
+      // Clean up when unmounting or before next embed replaces it
+      container.innerHTML = ''
+    }
+  }, [embedData])
 
   const fetchEmbed = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -179,7 +181,6 @@ export default function OEmbedDemoPage() {
             <div
               ref={embedContainerRef}
               className="border border-gray-100 rounded-lg p-4 bg-white overflow-hidden"
-              dangerouslySetInnerHTML={{ __html: embedData.html }}
             />
           </section>
 
