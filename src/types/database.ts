@@ -124,11 +124,13 @@ export interface Database {
           created_at: string
           // Content extraction fields
           transcript_text: string | null
+          transcript_summary: string | null
           ocr_text: string | null
           extracted_metadata: Json | null
           processing_status: string
           processing_error: string | null
           enrichment_completed_at: string | null
+          summary_generated_at: string | null
           media_downloaded: boolean
           media_file_paths: Json | null
           sources_used: Json | null
@@ -152,11 +154,13 @@ export interface Database {
           created_at?: string
           // Content extraction fields
           transcript_text?: string | null
+          transcript_summary?: string | null
           ocr_text?: string | null
           extracted_metadata?: Json | null
           processing_status?: string
           processing_error?: string | null
           enrichment_completed_at?: string | null
+          summary_generated_at?: string | null
           media_downloaded?: boolean
           media_file_paths?: Json | null
           sources_used?: Json | null
@@ -180,11 +184,13 @@ export interface Database {
           created_at?: string
           // Content extraction fields
           transcript_text?: string | null
+          transcript_summary?: string | null
           ocr_text?: string | null
           extracted_metadata?: Json | null
           processing_status?: string
           processing_error?: string | null
           enrichment_completed_at?: string | null
+          summary_generated_at?: string | null
           media_downloaded?: boolean
           media_file_paths?: Json | null
           sources_used?: Json | null

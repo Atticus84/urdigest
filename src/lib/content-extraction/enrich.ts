@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { SavedPost } from '@/types/database'
 import { transcribeFromUrl } from './transcribe'
 import { extractTextFromImageUrl, extractTextFromMultipleImages } from './ocr'
+import { summarizeTranscript } from './summarize-transcript'
 import { detectInstagramContentType } from '@/lib/instagram/normalize'
 
 /**
@@ -17,6 +18,7 @@ export interface EnrichmentResult {
   transcriptExtracted: boolean
   ocrExtracted: boolean
   transcriptText: string | null
+  transcriptSummary: string | null
   ocrText: string | null
   sourcesUsed: {
     transcript: boolean
@@ -90,6 +92,7 @@ export async function enrichInstagramPost(post: SavedPost): Promise<EnrichmentRe
     transcriptExtracted: false,
     ocrExtracted: false,
     transcriptText: null,
+    transcriptSummary: null,
     ocrText: null,
     sourcesUsed: {
       transcript: false,
@@ -113,30 +116,88 @@ export async function enrichInstagramPost(post: SavedPost): Promise<EnrichmentRe
     if ((contentType === 'REEL' || contentType === 'VIDEO') && ENABLE_TRANSCRIPTION) {
       console.log(`[Enrichment] Attempting transcription for ${contentType}`)
 
-      // For Instagram, we need the video URL
-      // Instagram oEmbed doesn't give us direct video URLs
-      // We'll need to check if thumbnail_url can be used or if we need Graph API
+      // Try to find video URL from various sources
+      let videoUrl: string | null = null
 
-      // For now, try to use thumbnail_url or skip if not available
-      const videoUrl = post.thumbnail_url // This is actually a thumbnail, not video
-
-      if (videoUrl) {
-        console.log(`[Enrichment] Note: Instagram doesn't provide direct video URLs via oEmbed`)
-        console.log(`[Enrichment] Skipping transcription - would need Instagram Graph API or media download`)
-        result.error = 'Transcription skipped: Instagram video URL not available without Graph API'
-      } else {
-        result.error = 'Transcription skipped: No video URL available'
+      // First, check if media_urls contains a direct video URL
+      if (post.media_urls) {
+        const mediaData = post.media_urls as any
+        if (typeof mediaData === 'string') {
+          // Single URL string
+          if (mediaData.includes('.mp4') || mediaData.includes('.mov') || mediaData.includes('video')) {
+            videoUrl = mediaData
+          }
+        } else if (Array.isArray(mediaData)) {
+          // Array of URLs - find video
+          const videoUrls = mediaData.filter(
+            (url: any) =>
+              typeof url === 'string' &&
+              (url.includes('.mp4') || url.includes('.mov') || url.includes('video'))
+          )
+          videoUrl = videoUrls[0] || null
+        } else if (mediaData.video_url) {
+          videoUrl = mediaData.video_url
+        } else if (mediaData.url && (mediaData.url.includes('video') || mediaData.url.includes('mp4'))) {
+          videoUrl = mediaData.url
+        }
       }
 
-      // TODO: Implement Instagram Graph API integration to get actual video URLs
-      // For demonstration, we'll simulate success if we had a video URL
-      // In production, this would call:
-      // const transcriptResult = await transcribeFromUrl(videoUrl)
-      // if (transcriptResult.success) {
-      //   result.transcriptText = transcriptResult.text
-      //   result.transcriptExtracted = true
-      //   result.sourcesUsed.transcript = true
-      // }
+      // If no video URL in media_urls, check if instagram_url is a direct video link
+      if (!videoUrl && post.instagram_url) {
+        // Instagram sometimes includes video files directly
+        if (
+          post.instagram_url.includes('fbsbx.com') ||
+          post.instagram_url.includes('_n.jpg') ||
+          post.instagram_url.includes('video')
+        ) {
+          videoUrl = post.instagram_url
+        }
+      }
+
+      if (videoUrl) {
+        console.log(`[Enrichment] Found video URL, attempting transcription...`)
+
+        const transcriptResult = await transcribeFromUrl(videoUrl, {
+          language: 'en',
+          prompt: 'This is a social media video. Transcribe everything the person says.',
+        })
+
+        if (transcriptResult.success && transcriptResult.text) {
+          result.transcriptText = transcriptResult.text
+          result.transcriptExtracted = true
+          result.sourcesUsed.transcript = true
+
+          console.log(
+            `[Enrichment] ✓ Transcription success: ${transcriptResult.text.length} characters extracted`
+          )
+
+          // Step 1b: Generate summary from transcript
+          if (transcriptResult.text.length > 50) {
+            console.log(`[Enrichment] Generating summary from transcript...`)
+
+            const summaryResult = await summarizeTranscript(transcriptResult.text, {
+              maxSummaryLength: 150,
+              style: 'detailed',
+            })
+
+            if (summaryResult.success && summaryResult.summary) {
+              result.transcriptSummary = summaryResult.summary
+              console.log(`[Enrichment] ✓ Summary generated: ${summaryResult.summary.length} characters`)
+              console.log(`[Enrichment]   Summary: "${summaryResult.summary.substring(0, 100)}..."`)
+            } else {
+              console.warn(`[Enrichment] ✗ Summary generation failed: ${summaryResult.error}`)
+            }
+          }
+        } else {
+          console.warn(`[Enrichment] ✗ Transcription failed: ${transcriptResult.error}`)
+          result.error = `Transcription failed: ${transcriptResult.error}`
+        }
+      } else {
+        console.log(`[Enrichment] No video URL available for transcription`)
+        console.log(`[Enrichment]   - instagram_url: ${post.instagram_url}`)
+        console.log(`[Enrichment]   - media_urls: ${post.media_urls ? 'available' : 'null'}`)
+        result.error = 'No video URL available - may require Instagram Graph API access'
+      }
     }
 
     // Step 2: Run OCR on images/carousels
@@ -199,12 +260,14 @@ export async function enrichInstagramPost(post: SavedPost): Promise<EnrichmentRe
 
     const updateData: any = {
       transcript_text: result.transcriptText,
+      transcript_summary: result.transcriptSummary,
       ocr_text: result.ocrText,
       sources_used: result.sourcesUsed,
       content_confidence: result.confidence,
       processing_status: 'completed',
       enrichment_completed_at: new Date().toISOString(),
       processing_error: result.error,
+      ...(result.transcriptSummary && { summary_generated_at: new Date().toISOString() }),
     }
 
     await supabaseAdmin.from('saved_posts').update(updateData).eq('id', post.id)
@@ -215,6 +278,9 @@ export async function enrichInstagramPost(post: SavedPost): Promise<EnrichmentRe
       `[Enrichment] ✓ Completed for post ${post.id} in ${processingTimeSeconds.toFixed(2)}s`
     )
     console.log(`[Enrichment]   - Transcript: ${result.transcriptExtracted ? '✓' : '✗'}`)
+    if (result.transcriptSummary) {
+      console.log(`[Enrichment]   - Summary: ✓`)
+    }
     console.log(`[Enrichment]   - OCR: ${result.ocrExtracted ? '✓' : '✗'}`)
     console.log(`[Enrichment]   - Caption: ${result.sourcesUsed.caption ? '✓' : '✗'}`)
     console.log(`[Enrichment]   - Confidence: ${result.confidence}`)
