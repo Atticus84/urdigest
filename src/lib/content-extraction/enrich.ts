@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { SavedPost } from '@/types/database'
 import { transcribeFromUrl } from './transcribe'
-import { extractTextFromImageUrl, extractTextFromMultipleImages } from './ocr'
+import { extractTextFromMultipleImages } from './ocr'
 import { summarizeTranscript } from './summarize-transcript'
 import { detectInstagramContentType } from '@/lib/instagram/normalize'
 
@@ -11,6 +11,60 @@ import { detectInstagramContentType } from '@/lib/instagram/normalize'
 const ENABLE_TRANSCRIPTION = process.env.ENABLE_TRANSCRIPTION !== 'false' // Default: true
 const ENABLE_OCR = process.env.ENABLE_OCR !== 'false' // Default: true
 const ENABLE_MEDIA_DOWNLOAD = process.env.ENABLE_MEDIA_DOWNLOAD === 'true' // Default: false (not implemented)
+
+function isHttpUrl(value: unknown): value is string {
+  return typeof value === 'string' && /^https?:\/\//i.test(value)
+}
+
+function collectUrls(value: unknown, out: string[] = []): string[] {
+  if (isHttpUrl(value)) {
+    out.push(value)
+    return out
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) collectUrls(item, out)
+    return out
+  }
+
+  if (value && typeof value === 'object') {
+    for (const item of Object.values(value as Record<string, unknown>)) {
+      collectUrls(item, out)
+    }
+  }
+
+  return out
+}
+
+function looksLikeImageUrl(url: string): boolean {
+  const lower = url.toLowerCase()
+  return (
+    /\.(jpg|jpeg|png|webp|bmp|gif|tiff|tif|heic|heif)(\?|$)/i.test(lower) ||
+    lower.includes('format=jpg') ||
+    lower.includes('format=jpeg') ||
+    lower.includes('format=png') ||
+    lower.includes('format=webp') ||
+    lower.includes('ig_messaging_cdn')
+  )
+}
+
+function getImageUrlsForOCR(post: SavedPost, contentType: string): string[] {
+  if (contentType !== 'IMAGE' && contentType !== 'CAROUSEL') {
+    return []
+  }
+
+  const candidates = new Set<string>()
+  for (const url of collectUrls(post.media_urls)) candidates.add(url)
+  if (isHttpUrl(post.thumbnail_url)) candidates.add(post.thumbnail_url)
+  if (isHttpUrl(post.instagram_url)) candidates.add(post.instagram_url)
+
+  const urls = [...candidates]
+  urls.sort((a, b) => Number(looksLikeImageUrl(b)) - Number(looksLikeImageUrl(a)))
+
+  // Keep bounded candidate count for OCR runtime cost.
+  const maxUrls = contentType === 'CAROUSEL' ? 10 : 4
+  return urls.slice(0, maxUrls)
+}
 
 export interface EnrichmentResult {
   postId: string
@@ -107,10 +161,13 @@ export async function enrichInstagramPost(post: SavedPost): Promise<EnrichmentRe
 
   try {
     // Update status to 'enriching'
-    await supabaseAdmin
+    const { error: startError } = await supabaseAdmin
       .from('saved_posts')
       .update({ processing_status: 'enriching' })
       .eq('id', post.id)
+    if (startError) {
+      throw new Error(`Failed to mark post as enriching: ${startError.message}`)
+    }
 
     // Step 1: Transcribe reels/videos
     if ((contentType === 'REEL' || contentType === 'VIDEO') && ENABLE_TRANSCRIPTION) {
@@ -204,28 +261,16 @@ export async function enrichInstagramPost(post: SavedPost): Promise<EnrichmentRe
     if ((contentType === 'CAROUSEL' || contentType === 'IMAGE') && ENABLE_OCR) {
       console.log(`[Enrichment] Attempting OCR for ${contentType}`)
 
-      // Get image URLs
-      let imageUrls: string[] = []
-
-      if (contentType === 'CAROUSEL' && post.media_urls) {
-        // Parse media_urls array
-        const mediaData = post.media_urls as any
-        if (Array.isArray(mediaData)) {
-          imageUrls = mediaData.filter((url) => typeof url === 'string')
-        } else if (Array.isArray(mediaData.urls)) {
-          imageUrls = mediaData.urls
-        }
-      } else if (post.thumbnail_url) {
-        imageUrls = [post.thumbnail_url]
-      }
+      const imageUrls = getImageUrlsForOCR(post, contentType)
 
       if (imageUrls.length > 0) {
-        console.log(`[Enrichment] Running OCR on ${imageUrls.length} image(s)`)
+        console.log(
+          `[Enrichment] Running OCR on ${imageUrls.length} image candidate(s): ${imageUrls
+            .slice(0, 3)
+            .join(', ')}${imageUrls.length > 3 ? ' ...' : ''}`
+        )
 
-        const ocrResult =
-          imageUrls.length > 1
-            ? await extractTextFromMultipleImages(imageUrls)
-            : await extractTextFromImageUrl(imageUrls[0])
+        const ocrResult = await extractTextFromMultipleImages(imageUrls)
 
         if (ocrResult.success && ocrResult.text) {
           result.ocrText = ocrResult.text
@@ -270,7 +315,13 @@ export async function enrichInstagramPost(post: SavedPost): Promise<EnrichmentRe
       ...(result.transcriptSummary && { summary_generated_at: new Date().toISOString() }),
     }
 
-    await supabaseAdmin.from('saved_posts').update(updateData).eq('id', post.id)
+    const { error: updateError } = await supabaseAdmin
+      .from('saved_posts')
+      .update(updateData)
+      .eq('id', post.id)
+    if (updateError) {
+      throw new Error(`Failed to persist enrichment fields: ${updateError.message}`)
+    }
 
     result.success = true
 
@@ -297,13 +348,18 @@ export async function enrichInstagramPost(post: SavedPost): Promise<EnrichmentRe
     console.error(`[Enrichment] ✗ Failed for post ${post.id}: ${errorMessage}`)
 
     // Update database with error
-    await supabaseAdmin
+    const { error: failUpdateError } = await supabaseAdmin
       .from('saved_posts')
       .update({
         processing_status: 'failed',
         processing_error: errorMessage,
       })
       .eq('id', post.id)
+    if (failUpdateError) {
+      console.error(
+        `[Enrichment] Failed to update error state for post ${post.id}: ${failUpdateError.message}`
+      )
+    }
 
     return result
   }

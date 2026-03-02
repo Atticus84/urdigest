@@ -1,5 +1,7 @@
 import { createWorker, Worker, RecognizeResult } from 'tesseract.js'
 import * as fs from 'fs'
+import os from 'os'
+import path from 'path'
 
 export interface OCRResult {
   success: boolean
@@ -11,13 +13,45 @@ export interface OCRResult {
 
 let _worker: Worker | null = null
 
+function resolveNodeWorkerPath() {
+  return path.join(
+    process.cwd(),
+    'node_modules',
+    'tesseract.js',
+    'src',
+    'worker-script',
+    'node',
+    'index.js'
+  )
+}
+
 /**
  * Get or create Tesseract worker (singleton for performance)
  */
 async function getWorker(): Promise<Worker> {
   if (!_worker) {
     console.log('[OCR] Initializing Tesseract worker...')
-    _worker = await createWorker('eng') // English language
+    const workerPath = resolveNodeWorkerPath()
+
+    if (!fs.existsSync(workerPath)) {
+      throw new Error(`OCR worker script not found: ${workerPath}`)
+    }
+
+    _worker = await createWorker(
+      'eng',
+      undefined,
+      {
+        workerPath,
+        logger: (m) => {
+          if (process.env.OCR_DEBUG === 'true') {
+            console.log(`[OCR Worker] ${m.status} ${(m.progress * 100).toFixed(0)}%`)
+          }
+        },
+        errorHandler: (err) => {
+          console.error('[OCR Worker] error', err)
+        },
+      }
+    ) // English language
     console.log('[OCR] Worker initialized')
   }
   return _worker
@@ -125,11 +159,13 @@ export async function extractTextFromImageUrl(
     tempDir?: string
   }
 ): Promise<OCRResult> {
-  const tempDir = options?.tempDir || '/tmp'
-  const tempFileName = `ocr-${Date.now()}-${Math.random().toString(36).slice(2, 9)}.jpg`
-  const tempFilePath = `${tempDir}/${tempFileName}`
+  const tempDir = options?.tempDir || os.tmpdir()
+  const tempFileName = `ocr-${Date.now()}-${Math.random().toString(36).slice(2, 9)}.img`
+  const tempFilePath = path.join(tempDir, tempFileName)
 
   try {
+    fs.mkdirSync(tempDir, { recursive: true })
+
     console.log(`[OCR] Downloading ${url} to ${tempFilePath}`)
 
     // Download file
@@ -138,7 +174,19 @@ export async function extractTextFromImageUrl(
       throw new Error(`Failed to download: ${response.status} ${response.statusText}`)
     }
 
+    const contentType = (response.headers.get('content-type') || '').toLowerCase()
+    if (contentType && !contentType.startsWith('image/')) {
+      throw new Error(`Downloaded content is not an image (${contentType})`)
+    }
+
     const buffer = await response.arrayBuffer()
+    const maxImageBytes = Number(process.env.OCR_MAX_IMAGE_BYTES || 15 * 1024 * 1024)
+    if (buffer.byteLength > maxImageBytes) {
+      throw new Error(
+        `Image too large: ${(buffer.byteLength / 1024 / 1024).toFixed(2)} MB (max ${(maxImageBytes / 1024 / 1024).toFixed(2)} MB)`
+      )
+    }
+
     fs.writeFileSync(tempFilePath, Buffer.from(buffer))
 
     console.log(`[OCR] Downloaded ${(buffer.byteLength / 1024).toFixed(2)} KB`)
@@ -217,18 +265,20 @@ export async function extractTextFromMultipleImages(
     }
 
     // Combine successful results
-    const successfulResults = results.filter((r) => r.success && r.text)
+    const successfulResults = results
+      .map((result, index) => ({ result, index }))
+      .filter(({ result }) => result.success && result.text)
     const combinedText = successfulResults
-      .map((r, i) => {
+      .map(({ result, index }) => {
         // Add image number prefix for clarity
-        return `[Image ${i + 1}]\n${r.text}`
+        return `[Image ${index + 1}]\n${result.text}`
       })
       .join('\n\n')
 
     // Average confidence
     const avgConfidence =
       successfulResults.length > 0
-        ? successfulResults.reduce((sum, r) => sum + (r.confidence || 0), 0) / successfulResults.length
+        ? successfulResults.reduce((sum, item) => sum + (item.result.confidence || 0), 0) / successfulResults.length
         : null
 
     const duration = (Date.now() - startTime) / 1000
