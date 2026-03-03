@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { sendInstagramMessage } from '@/lib/instagram/send-message'
 import { getInstagramUsername } from '@/lib/instagram/get-username'
+import { enqueueSavedPostEnrichment } from '@/lib/content-extraction/queue'
 
 export const dynamic = 'force-dynamic'
 
@@ -738,7 +739,7 @@ async function saveInstagramPost(userId: string, payload: any, attachmentType?: 
       console.log(`Fetched oEmbed metadata for ${postUrl}:`, metadata)
     }
 
-    await supabaseAdmin
+    const { data: insertedPost, error: insertError } = await supabaseAdmin
       .from('saved_posts')
       .insert({
         user_id: userId,
@@ -749,6 +750,16 @@ async function saveInstagramPost(userId: string, payload: any, attachmentType?: 
         author_username: metadata?.author_name || null,
         thumbnail_url: metadata?.thumbnail_url || null,
       })
+      .select('id,user_id')
+      .single()
+
+    if (insertError) {
+      throw insertError
+    }
+
+    if (insertedPost) {
+      await enqueueSavedPostEnrichment(insertedPost.id, insertedPost.user_id)
+    }
 
     // Update post count
     const { data: currentUser } = await supabaseAdmin

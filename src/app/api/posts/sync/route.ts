@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+import { enqueueSavedPostEnrichment } from '@/lib/content-extraction/queue'
 
 const PostSchema = z.object({
   instagram_post_id: z.string(),
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     // Insert posts
     for (const post of posts) {
-      const { error } = await supabase
+      const { data: insertedPost, error } = await supabase
         .from('saved_posts')
         .insert({
           user_id: user.id,
@@ -58,6 +59,8 @@ export async function POST(request: NextRequest) {
           thumbnail_url: post.thumbnail_url || null,
           posted_at: post.posted_at || null,
         })
+        .select('id,user_id')
+        .single()
 
       if (error) {
         if (error.code === '23505') {
@@ -68,6 +71,9 @@ export async function POST(request: NextRequest) {
         }
       } else {
         synced++
+        if (insertedPost) {
+          await enqueueSavedPostEnrichment(insertedPost.id, insertedPost.user_id)
+        }
       }
     }
 

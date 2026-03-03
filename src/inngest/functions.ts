@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { generateNewsletter, generateFallbackNewsletter } from '@/lib/ai/summarize'
 import { sendDigestEmail, sendTrialEndedEmail } from '@/lib/email/send'
 import { format } from 'date-fns'
+import { enrichInstagramPost } from '@/lib/content-extraction/enrich'
+import { SavedPost } from '@/types/database'
 
 export const dailyDigest = inngest.createFunction(
   { id: 'daily-digest', name: 'Generate and send daily digests' },
@@ -205,5 +207,67 @@ export const manualDigest = inngest.createFunction(
     }
 
     return await generateDigestForUser(user)
+  }
+)
+
+export const enrichSavedPost = inngest.createFunction(
+  { id: 'enrich-saved-post', name: 'Enrich newly saved post' },
+  { event: 'saved-post/enrich.requested' },
+  async ({ event, step }) => {
+    const postId = String((event.data as { postId?: string } | undefined)?.postId || '')
+    if (!postId) {
+      throw new Error('Missing postId in event payload')
+    }
+
+    const post = await step.run('fetch-saved-post', async () => {
+      const { data, error } = await supabaseAdmin
+        .from('saved_posts')
+        .select('*')
+        .eq('id', postId)
+        .single()
+
+      if (error) {
+        if (error.code === 'PGRST116') return null
+        throw new Error(`Failed to fetch post ${postId}: ${error.message}`)
+      }
+
+      return data as SavedPost
+    })
+
+    if (!post) {
+      return {
+        success: false,
+        skipped: true,
+        reason: 'post_not_found',
+        postId,
+      }
+    }
+
+    const alreadyCompleted =
+      post.processing_status === 'completed' &&
+      Boolean(post.transcript_text || post.transcript_summary || post.ocr_text)
+
+    if (alreadyCompleted) {
+      return {
+        success: true,
+        skipped: true,
+        reason: 'already_completed',
+        postId,
+      }
+    }
+
+    const result = await step.run('enrich-saved-post', async () => {
+      return enrichInstagramPost(post)
+    })
+
+    return {
+      success: result.success,
+      postId: result.postId,
+      transcriptExtracted: result.transcriptExtracted,
+      summaryGenerated: Boolean(result.transcriptSummary),
+      ocrExtracted: result.ocrExtracted,
+      confidence: result.confidence,
+      error: result.error,
+    }
   }
 )
