@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { format } from 'date-fns'
 import type { SavedPost } from '@/types/database'
+import MediaThumbnail from '@/components/MediaThumbnail'
 
 type ViewMode = 'grid' | 'list'
 type SortField = 'saved_at' | 'posted_at' | 'author_username'
@@ -295,10 +296,9 @@ export default function LibraryPage() {
             >
               <div className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden bg-gray-100 mb-1.5 md:mb-2">
                 {post.thumbnail_url ? (
-                  <img
+                  <MediaThumbnail
                     src={post.thumbnail_url}
-                    alt=""
-                    loading="lazy"
+                    postType={post.post_type}
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -342,7 +342,11 @@ export default function LibraryPage() {
                 }`}
               >
                 {post.thumbnail_url ? (
-                  <img src={post.thumbnail_url} alt="" className="w-12 h-12 md:w-16 md:h-16 rounded-lg object-cover shrink-0" />
+                  <MediaThumbnail
+                    src={post.thumbnail_url}
+                    postType={post.post_type}
+                    className="w-12 h-12 md:w-16 md:h-16 rounded-lg object-cover shrink-0"
+                  />
                 ) : (
                   <div className="w-12 h-12 md:w-16 md:h-16 rounded-lg bg-gray-100 shrink-0 flex items-center justify-center">
                     <span className="text-xl md:text-2xl">{postTypeEmojis[post.post_type || ''] || '📌'}</span>
@@ -519,12 +523,12 @@ function PostDetailSheet({ post, onClose }: { post: SavedPost; onClose: () => vo
           </button>
         </div>
 
-        {/* Image */}
+        {/* Media */}
         {post.thumbnail_url && (
           <div className="px-4 md:px-6 pt-3">
-            <img
+            <MediaThumbnail
               src={post.thumbnail_url}
-              alt=""
+              postType={post.post_type}
               className="w-full max-h-56 md:max-h-64 object-cover rounded-xl"
             />
           </div>

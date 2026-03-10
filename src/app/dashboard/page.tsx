@@ -7,6 +7,7 @@ import { format } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { ensureUserProfile } from '@/lib/supabase/ensure-profile'
 import type { Digest, User, SavedPost } from '@/types/database'
+import MediaThumbnail from '@/components/MediaThumbnail'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -144,10 +145,9 @@ export default function DashboardPage() {
               <Link key={post.id} href="/dashboard/library" className="group">
                 <div className="aspect-square rounded-lg md:rounded-xl overflow-hidden bg-gray-100 relative">
                   {post.thumbnail_url ? (
-                    <img
+                    <MediaThumbnail
                       src={post.thumbnail_url}
-                      alt=""
-                      loading="lazy"
+                      postType={post.post_type}
                       className="w-full h-full object-cover"
                     />
                   ) : (
