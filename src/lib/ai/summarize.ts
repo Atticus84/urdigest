@@ -30,7 +30,9 @@ export interface NewsletterSection {
   // Enhanced structured fields for Morning Brew-style layout
   title?: string // Short headline (<= 8 words, editorial style)
   lede?: string // 1-2 sentence summary
-  takeaways?: string[] // 2-5 actionable bullets
+  takeaways?: string[] // 3-6 substantive bullets with real data
+  key_quote?: string // Best direct quote from transcript/caption
+  talking_points?: string[] // 2-4 discussion-worthy points
   why_you_saved_it?: string // 1 sentence guess based on content
   content_type_label?: string // "Reel", "Carousel", "Post", etc.
   content_type_emoji?: string // Type-specific emoji
@@ -57,29 +59,41 @@ export async function generateNewsletterFromNormalized(
 }> {
   const systemPrompt = `You are the editor of a daily newsletter that reads like Morning Brew — sharp, witty, and impossible to skim past. Your readers are busy people scrolling on their phones. Every sentence needs to earn the next one.
 
-VOICE & TONE (this is the most important thing):
+YOUR #1 JOB: Extract the ACTUAL learnings, data, advice, and value from every post. You have transcripts, OCR text, and captions — mine them for specifics. Your reader saved this post because it taught them something or gave them something useful. Your job is to pull that value out so they never need to re-watch the video or re-read the carousel.
+
+VOICE & TONE:
 - Write like a smart friend texting you the good stuff, not a journalist writing a formal recap.
-- Short paragraphs. One to three sentences max. The phone screen is your canvas.
+- Short paragraphs. One to three sentences max.
 - Lead with the insight, not the setup. "Here's why that matters" > "In a recent post, the creator discussed..."
 - Bold the single most important phrase in each paragraph using <b> tags. Not every other word — just the hook.
 - Use contractions. Use fragments. Start sentences with "And" or "But" when it flows.
-- Be specific. "Cut your grocery bill by 30%" beats "Save money on groceries."
+- Be EXTREMELY specific. "Cut your grocery bill by 30% by shopping on Wednesdays" beats "Save money on groceries."
 - Never say "In this reel..." or "The creator discusses..." — just deliver the insight directly.
 - Never say "no caption available" — if data is thin, write a short, honest teaser.
 
-CONTENT PRIORITY:
-You'll receive posts with TRANSCRIPT (from video audio) and/or OCR TEXT (from images). Use them in this order:
-1. TRANSCRIPT → summarize what was said. Pull real quotes and stats.
-2. OCR TEXT → summarize what's written on-screen. Reference real numbers and claims.
-3. CAPTION → use the creator's own words.
-4. NOTHING → write a tight 1-2 sentence teaser. Don't invent details.
+CONTENT EXTRACTION PRIORITY (this is critical):
+You'll receive posts with TRANSCRIPT (from video audio) and/or OCR TEXT (from images). Your job is to EXTRACT THE ACTUAL VALUE from these sources — not just summarize that they exist.
+
+1. TRANSCRIPT → This is gold. The creator is literally teaching or explaining something. Pull out:
+   - Specific advice, steps, methods, or frameworks they mention
+   - Any numbers, stats, percentages, or data points
+   - Direct quotes that capture the key insight
+   - The "aha moment" — the one thing that makes this worth saving
+2. OCR TEXT → This is text from carousel slides or infographics. Extract:
+   - The actual tips, lists, or steps shown on screen
+   - Specific claims, statistics, or facts
+   - Any frameworks, formulas, or processes
+3. CAPTION → Use the creator's own framing of their content
+4. NOTHING → Write a tight 1-2 sentence teaser. Don't invent details.
 
 STRUCTURE PER SECTION:
 - title: Punchy editorial headline, 4-8 words, title case. Make it specific — "The 5-Second Rule That Fixes Your Mornings" not "Morning Routine Tips."
-- lede: 1-2 sentences. This is the hook. It should make someone stop scrolling. Think of it as the title's sidekick — together they tell the whole story in 3 seconds.
-- body: 40-80 words. This is the meat. Use <b>bold</b> sparingly for the key insight. Write in short paragraphs. Taper length — early sections get 60-80 words, later sections get 40-60.
-- takeaways: 2-4 bullet points. Each one is a standalone insight someone could screenshot. Pull real data from transcripts/OCR when available.
-- why_you_saved_it: One casual sentence. "This is the kind of thing you'll reference next time you meal prep."
+- lede: 1-2 sentences. This is the hook. Deliver the core insight immediately.
+- body: 60-120 words. This is the MEAT. Go deep here. Explain the actual method, advice, or insight the creator shared. Use <b>bold</b> sparingly for the key insight. Write in short paragraphs. If the creator shared a 3-step process, explain all 3 steps. If they cited a study, mention the finding.
+- takeaways: 3-6 bullet points. THIS IS THE MOST IMPORTANT PART. Each bullet should be a specific, actionable piece of knowledge extracted from the post. NOT vague summaries like "Great advice about fitness" — instead write "Do 20 minutes of zone 2 cardio before breakfast for 2x fat burn." Pull real numbers, real steps, real advice. If the transcript mentions a specific technique, name it. If the OCR shows a list of 5 tips, include all 5. These should be so good that reading just the bullets gives you 80% of the post's value.
+- key_quote: The single best direct quote from the transcript or caption. Something punchy and quotable. If the transcript says "The biggest mistake people make is...", pull that. Leave empty string if no good quote exists.
+- talking_points: 2-4 points that make this worth discussing with a friend. Frame them as conversation starters: "Apparently your morning coffee should wait 90 minutes after waking up" or "The 80/20 rule applies to meal prep too — 80% of results come from just 3 meals."
+- why_you_saved_it: One casual sentence connecting to real life.
 - headline: ALL CAPS version of the title for structural use (3-5 words).
 - emoji: One emoji that fits the vibe.
 - content_type_label: "Reel", "Carousel", "Post", or "Video"
@@ -87,9 +101,9 @@ STRUCTURE PER SECTION:
 - author_username: Pass through or null.
 
 OVERALL NEWSLETTER:
-- subject_line: Under 50 chars. Curiosity-driven. "The $3 hack that replaced your gym" > "Your Daily Digest."
-- greeting: One line, max 10 words. Casual. "Good stuff in your saves today." or "Your feed came through." No exclamation marks.
-- big_picture: 2 sentences tying themes together. End on a forward-looking note.
+- subject_line: Under 50 chars. Curiosity-driven. Reference a specific insight from the best post.
+- greeting: One line, max 10 words. Casual. No exclamation marks.
+- big_picture: 2-3 sentences. Tie the themes together and surface the single biggest takeaway across all posts.
 
 Create EXACTLY ${items.length} sections, one per post. Return ONLY valid JSON. Do NOT use markdown — only <b> tags for bold.`
 
@@ -137,31 +151,42 @@ Sources Available: ${sourcesUsed}${contentSection}---
 
 Return a JSON object with this EXACT structure:
 {
-  "subject_line": "Under 50 chars, curiosity-driven",
+  "subject_line": "Under 50 chars, reference a specific insight",
   "greeting": "One casual line, max 10 words",
   "sections": [
     {
       "emoji": "🔥",
       "headline": "ALL CAPS 3-5 WORDS",
       "title": "Punchy Title Case Headline 4-8 Words",
-      "lede": "1-2 sentence hook. Make them stop scrolling.",
-      "body": "40-80 words. Short paragraphs. <b>Bold the key insight</b>. Write like a smart friend, not a reporter.",
-      "takeaways": ["Standalone insight someone could screenshot", "Another one"],
-      "why_you_saved_it": "One casual sentence about why this matters to them.",
+      "lede": "1-2 sentence hook delivering the core insight.",
+      "body": "60-120 words. Go deep. Explain the actual method/advice/insight. <b>Bold the key insight</b>.",
+      "takeaways": [
+        "Specific actionable insight #1 with real data or steps",
+        "Specific actionable insight #2 — name techniques, cite numbers",
+        "Specific actionable insight #3 — so good you don't need to watch the original"
+      ],
+      "key_quote": "Best direct quote from transcript or caption. Empty string if none.",
+      "talking_points": [
+        "Conversation-worthy framing of a key idea from this post",
+        "Another angle worth discussing — framed as something you'd tell a friend"
+      ],
+      "why_you_saved_it": "One casual sentence connecting to real life.",
       "content_type_label": "Reel",
       "instagram_url": "https://instagram.com/...",
       "author_username": "username or null"
     }
   ],
-  "big_picture": "2 sentences. Tie themes together. End forward-looking."
+  "big_picture": "2-3 sentences. Tie themes together. Surface the single biggest takeaway."
 }
 
 RULES:
 - Return ONLY valid JSON, no markdown
 - EXACTLY ${items.length} sections, one per post
-- All fields required in each section
+- All fields required in each section (key_quote and talking_points can be empty string/array if truly no content)
+- takeaways is THE MOST IMPORTANT FIELD — make each bullet a real piece of knowledge, not a vague summary
+- If a transcript has specific steps, tips, or numbers — they MUST appear in the takeaways
 - Never say "no caption available" — write a short teaser instead
-- Low-confidence posts get tight, honest copy — not filler
+- Low-confidence posts get fewer but still honest takeaways
 `
 
   try {
@@ -298,12 +323,38 @@ export function generateFallbackNewsletterFromNormalized(items: NormalizedDigest
         body = fallbackBodies[index % fallbackBodies.length]
       }
 
-      // Takeaways
+      // Takeaways — extract from transcript/OCR when available
       const takeaways: string[] = []
-      if (hasCaption && item.creatorHandle) {
+      if (item.transcriptText && item.transcriptText.length > 50) {
+        // Pull first two meaningful sentences from transcript as takeaways
+        const sentences = item.transcriptText.split(/[.!?]+/).filter(s => s.trim().length > 20).slice(0, 3)
+        for (const s of sentences) {
+          takeaways.push(s.trim())
+        }
+      }
+      if (item.ocrText && item.ocrText.length > 20) {
+        const ocrLines = item.ocrText.split('\n').filter(l => l.trim().length > 10).slice(0, 3)
+        for (const l of ocrLines) {
+          takeaways.push(l.trim())
+        }
+      }
+      if (takeaways.length === 0 && hasCaption && item.creatorHandle) {
         takeaways.push(`From @${item.creatorHandle} — worth following if you aren't already`)
       }
-      takeaways.push('Tap through for the full thing')
+      if (takeaways.length === 0) {
+        takeaways.push('Tap through for the full thing')
+      }
+
+      // Key quote
+      const key_quote = item.transcriptText
+        ? (item.transcriptText.split(/[.!?]+/).find(s => s.trim().length > 30 && s.trim().length < 150) || '').trim()
+        : ''
+
+      // Talking points
+      const talking_points: string[] = []
+      if (hasCaption && item.captionText!.length > 50) {
+        talking_points.push(item.captionText!.slice(0, 120).trim())
+      }
 
       return {
         emoji,
@@ -312,6 +363,8 @@ export function generateFallbackNewsletterFromNormalized(items: NormalizedDigest
         lede,
         body,
         takeaways,
+        key_quote,
+        talking_points,
         why_you_saved_it: hasCaption
           ? 'Something in here clicked with you.'
           : 'The kind of thing you\'ll be glad you saved.',

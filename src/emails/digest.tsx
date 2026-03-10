@@ -184,12 +184,13 @@ function renderSection(
   colors: typeof c
 ): string {
   const hasTakeaways = section.takeaways && section.takeaways.length > 0
+  const hasTalkingPoints = section.talking_points && section.talking_points.length > 0
+  const hasKeyQuote = section.key_quote && section.key_quote.length > 0
   const hasTitle = section.title && section.title.length > 0
   const headline = hasTitle ? section.title : section.headline
   const hasLede = section.lede && section.lede.length > 0
 
   // Morning Brew condenses the headline INTO the body text as a bold lead-in.
-  // This saves vertical space and keeps the reader flowing.
   const bodyWithInlineHeadline = hasLede
     ? `<b style="color:${colors.headline};">${headline}.</b> ${section.lede}`
     : `<b style="color:${colors.headline};">${headline}.</b> ${section.body}`
@@ -206,19 +207,44 @@ function renderSection(
               <!-- Headline + lede — bold title flows into the paragraph -->
               <p style="margin:0 0 14px;font-size:16px;line-height:1.65;color:${colors.text};">${bodyWithInlineHeadline}</p>
 
-              <!-- Body — only shown if lede was used above (so body is separate) -->
+              <!-- Body — the deep explanation of the actual content -->
               ${hasLede ? `
               <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:${colors.textLight};">${section.body}</p>
               ` : ''}
 
-              <!-- Key Takeaways — subtle card like Brew's "bottom line" boxes -->
-              ${hasTakeaways ? `
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 14px;">
+              <!-- Key Quote — pull quote from the creator -->
+              ${hasKeyQuote ? `
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">
                 <tr>
-                  <td style="padding:14px 16px;background-color:${colors.cardBg};border-left:3px solid ${labelColor};border-radius:0 4px 4px 0;">
-                    <p style="margin:0 0 8px;font-size:10px;font-weight:700;color:${colors.textMuted};text-transform:uppercase;letter-spacing:0.8px;">Key Takeaways</p>
+                  <td style="padding:12px 20px;border-left:3px solid ${colors.textMuted};background-color:transparent;">
+                    <p style="margin:0;font-size:15px;line-height:1.6;color:${colors.text};font-style:italic;">&ldquo;${section.key_quote}&rdquo;</p>
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
+
+              <!-- Key Discoveries — the real value extraction -->
+              ${hasTakeaways ? `
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">
+                <tr>
+                  <td style="padding:16px 18px;background-color:${colors.cardBg};border-left:3px solid ${labelColor};border-radius:0 4px 4px 0;">
+                    <p style="margin:0 0 10px;font-size:10px;font-weight:700;color:${labelColor};text-transform:uppercase;letter-spacing:1px;">&#x1F4A1; Key Discoveries</p>
                     ${section.takeaways!.map(t => `
-                    <p style="margin:0 0 5px;font-size:14px;line-height:1.55;color:${colors.text};padding-left:14px;text-indent:-14px;"><span style="color:${labelColor};font-weight:700;">&#x2022;</span>&nbsp; ${t}</p>
+                    <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:${colors.text};padding-left:16px;text-indent:-16px;"><span style="color:${labelColor};font-weight:700;">&#x2022;</span>&nbsp; ${t}</p>
+                    `).join('')}
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
+
+              <!-- Talking Points — conversation starters -->
+              ${hasTalkingPoints ? `
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">
+                <tr>
+                  <td style="padding:14px 18px;background-color:transparent;border:1px solid ${colors.divider};border-radius:4px;">
+                    <p style="margin:0 0 8px;font-size:10px;font-weight:700;color:${colors.textMuted};text-transform:uppercase;letter-spacing:1px;">&#x1F4AC; Worth Discussing</p>
+                    ${section.talking_points!.map(t => `
+                    <p style="margin:0 0 6px;font-size:13px;line-height:1.55;color:${colors.textLight};padding-left:14px;text-indent:-14px;"><span style="color:${colors.textMuted};">&#x2192;</span>&nbsp; ${t}</p>
                     `).join('')}
                   </td>
                 </tr>
@@ -230,7 +256,7 @@ function renderSection(
               <p style="margin:0 0 12px;font-size:13px;line-height:1.55;color:${colors.textMuted};font-style:italic;">${section.why_you_saved_it}</p>
               ` : ''}
 
-              <!-- CTA — simple text link, not a big button -->
+              <!-- CTA — simple text link -->
               <p style="margin:0 0 0;font-size:13px;font-weight:600;">
                 <a href="${section.instagram_url}" style="color:${colors.accent};text-decoration:none;">View on Instagram &rarr;</a>
               </p>
