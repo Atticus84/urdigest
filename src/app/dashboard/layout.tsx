@@ -41,6 +41,7 @@ export default function DashboardLayout({
 
   const navLinks = [
     { href: '/dashboard', label: 'Home', icon: '📬' },
+    { href: '/dashboard/digests', label: 'Digests', icon: '📰' },
     { href: '/dashboard/library', label: 'Library', icon: '📚' },
     { href: '/dashboard/ask', label: 'Ask AI', icon: '🧠' },
     { href: '/dashboard/sharing', label: 'Share', icon: '🔗' },
@@ -49,7 +50,7 @@ export default function DashboardLayout({
 
   const isActive = (href: string) => {
     if (href === '/dashboard') {
-      return pathname === '/dashboard' || pathname.startsWith('/dashboard/digests')
+      return pathname === '/dashboard'
     }
     return pathname.startsWith(href)
   }

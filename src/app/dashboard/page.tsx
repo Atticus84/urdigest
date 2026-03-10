@@ -171,6 +171,9 @@ export default function DashboardPage() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xs md:text-sm font-semibold text-gray-900 uppercase tracking-wider">Recent Digests</h2>
+          <Link href="/dashboard/digests" className="text-xs text-gray-400 active:text-instagram-pink">
+            View all →
+          </Link>
         </div>
 
         {digests.length === 0 ? (
