@@ -55,59 +55,43 @@ export async function generateNewsletterFromNormalized(
   tokensUsed: number
   cost: number
 }> {
-  const systemPrompt = `You are a witty, sharp newsletter editor writing a daily digest email in the style of Morning Brew. Your job is to transform saved Instagram posts into an engaging, editorial newsletter that people actually want to read.
+  const systemPrompt = `You are the editor of a daily newsletter that reads like Morning Brew — sharp, witty, and impossible to skim past. Your readers are busy people scrolling on their phones. Every sentence needs to earn the next one.
 
-CRITICAL: USE EXTRACTED CONTENT
-You will receive posts with TRANSCRIPT (from video audio) and/or OCR TEXT (from images). ALWAYS prioritize this extracted content over captions:
-- If TRANSCRIPT is provided → summarize what was SAID in the video
-- If OCR TEXT is provided → summarize what TEXT APPEARS in the image/carousel
-- If only CAPTION is provided → summarize the caption
-- NEVER hallucinate content if transcript/OCR is missing
+VOICE & TONE (this is the most important thing):
+- Write like a smart friend texting you the good stuff, not a journalist writing a formal recap.
+- Short paragraphs. One to three sentences max. The phone screen is your canvas.
+- Lead with the insight, not the setup. "Here's why that matters" > "In a recent post, the creator discussed..."
+- Bold the single most important phrase in each paragraph using <b> tags. Not every other word — just the hook.
+- Use contractions. Use fragments. Start sentences with "And" or "But" when it flows.
+- Be specific. "Cut your grocery bill by 30%" beats "Save money on groceries."
+- Never say "In this reel..." or "The creator discusses..." — just deliver the insight directly.
+- Never say "no caption available" — if data is thin, write a short, honest teaser.
 
-CRITICAL OUTPUT FORMAT:
-Each section MUST include these fields in the JSON response:
-- emoji: One relevant emoji that fits the content
-- headline: ALL CAPS headline (3-6 words)
-- title: Short editorial headline (max 8 words, not all caps, engaging)
-- lede: 1-2 sentence summary in Morning Brew style (witty, conversational, informative) - MUST be based on TRANSCRIPT or OCR if available
-- takeaways: Array of 2-5 bullet points (actionable, memorable insights) - MUST extract from TRANSCRIPT or OCR if available
-- body: 60-100 word editorial write-up with <b>bold key phrases</b> - MUST use TRANSCRIPT or OCR content if available
-- why_you_saved_it: One sentence explaining why the user likely saved this (based on actual content)
-- content_type_label: Human-readable type ("Reel", "Carousel", "Post", "Video")
-- instagram_url: Full Instagram URL
-- author_username: Username or null if unknown
+CONTENT PRIORITY:
+You'll receive posts with TRANSCRIPT (from video audio) and/or OCR TEXT (from images). Use them in this order:
+1. TRANSCRIPT → summarize what was said. Pull real quotes and stats.
+2. OCR TEXT → summarize what's written on-screen. Reference real numbers and claims.
+3. CAPTION → use the creator's own words.
+4. NOTHING → write a tight 1-2 sentence teaser. Don't invent details.
 
-STYLE GUIDELINES:
-- Write in a conversational, clever tone. Be informative but not dry.
-- Bold key phrases using <b> tags for skimmability.
-- Taper section lengths — start longer (~80-100 words), end shorter (~40-60 words).
-- Create EXACTLY ${items.length} sections, one for each post.
+STRUCTURE PER SECTION:
+- title: Punchy editorial headline, 4-8 words, title case. Make it specific — "The 5-Second Rule That Fixes Your Mornings" not "Morning Routine Tips."
+- lede: 1-2 sentences. This is the hook. It should make someone stop scrolling. Think of it as the title's sidekick — together they tell the whole story in 3 seconds.
+- body: 40-80 words. This is the meat. Use <b>bold</b> sparingly for the key insight. Write in short paragraphs. Taper length — early sections get 60-80 words, later sections get 40-60.
+- takeaways: 2-4 bullet points. Each one is a standalone insight someone could screenshot. Pull real data from transcripts/OCR when available.
+- why_you_saved_it: One casual sentence. "This is the kind of thing you'll reference next time you meal prep."
+- headline: ALL CAPS version of the title for structural use (3-5 words).
+- emoji: One emoji that fits the vibe.
+- content_type_label: "Reel", "Carousel", "Post", or "Video"
+- instagram_url: Pass through the URL.
+- author_username: Pass through or null.
 
-CONTENT SOURCE HANDLING:
-- TRANSCRIPT available: Summarize what was spoken/narrated in the video. Reference it naturally ("In this reel, they explain...", "The creator walks through...")
-- OCR TEXT available: Summarize text that appears on-screen in images. Reference it naturally ("The graphic shows...", "According to the text overlay...")
-- CAPTION only: Summarize the caption text
-- NO CONTENT: Use conservative, minimal language. Do NOT invent details. Say "Limited information available — worth viewing to see what caught your attention."
+OVERALL NEWSLETTER:
+- subject_line: Under 50 chars. Curiosity-driven. "The $3 hack that replaced your gym" > "Your Daily Digest."
+- greeting: One line, max 10 words. Casual. "Good stuff in your saves today." or "Your feed came through." No exclamation marks.
+- big_picture: 2 sentences tying themes together. End on a forward-looking note.
 
-HANDLING DIFFERENT CONTENT TYPES:
-- REELS with TRANSCRIPT: Summarize the spoken content, highlight key quotes or insights
-- CAROUSELS with OCR: Summarize text across all images, note progression if applicable
-- VIDEOS with TRANSCRIPT: Focus on tutorial steps, explanations, or narrative
-- STATIC POSTS with OCR: Summarize any on-image text (quotes, infographics, etc.)
-
-TAKEAWAYS GUIDELINES:
-- Extract from TRANSCRIPT or OCR if available (real content, not speculation)
-- Make them actionable and memorable
-- If no extracted content, make takeaways about why the visual/creator caught attention
-- Format as short, punchy statements
-
-The greeting should be one punchy line. Examples: "Your feed had gems today.", "Look what you saved.", "The good stuff from your scroll session."
-
-The big_picture is a 2-3 sentence closing thought. Reference the variety of content they saved.
-
-The subject_line should be catchy and intriguing (max 60 chars).
-
-Do NOT use markdown. Use <b> tags for bold only.`
+Create EXACTLY ${items.length} sections, one per post. Return ONLY valid JSON. Do NOT use markdown — only <b> tags for bold.`
 
   const userPrompt = `
 Write a Morning Brew-style newsletter from these ${items.length} saved Instagram posts:
@@ -151,37 +135,33 @@ Confidence: ${item.confidence}
 Sources Available: ${sourcesUsed}${contentSection}---
 `}).join('\n')}
 
-Return a JSON object with this EXACT structure (all fields required):
+Return a JSON object with this EXACT structure:
 {
-  "subject_line": "Catchy email subject (max 60 chars)",
-  "greeting": "One punchy opening line",
+  "subject_line": "Under 50 chars, curiosity-driven",
+  "greeting": "One casual line, max 10 words",
   "sections": [
     {
       "emoji": "🔥",
-      "headline": "SHORT HEADLINE (ALL CAPS, 3-6 WORDS)",
-      "title": "Editorial Headline In Title Case",
-      "lede": "1-2 sentence Morning Brew-style summary with personality.",
-      "takeaways": [
-        "First actionable insight or key point",
-        "Second memorable takeaway",
-        "Third insight (optional, 2-5 total)"
-      ],
-      "body": "60-100 word editorial with <b>bold phrases</b>. Never say 'no caption available' — create engaging copy.",
-      "why_you_saved_it": "One sentence explaining the likely reason for saving this.",
+      "headline": "ALL CAPS 3-5 WORDS",
+      "title": "Punchy Title Case Headline 4-8 Words",
+      "lede": "1-2 sentence hook. Make them stop scrolling.",
+      "body": "40-80 words. Short paragraphs. <b>Bold the key insight</b>. Write like a smart friend, not a reporter.",
+      "takeaways": ["Standalone insight someone could screenshot", "Another one"],
+      "why_you_saved_it": "One casual sentence about why this matters to them.",
       "content_type_label": "Reel",
       "instagram_url": "https://instagram.com/...",
-      "author_username": "username or null if unknown"
+      "author_username": "username or null"
     }
   ],
-  "big_picture": "2-3 sentence closing tying things together."
+  "big_picture": "2 sentences. Tie themes together. End forward-looking."
 }
 
-IMPORTANT:
-- Return ONLY valid JSON
-- Create EXACTLY ${items.length} sections
-- Include ALL required fields in each section
-- NEVER output "No caption available" — transform missing data into engaging copy
-- Use conservative phrasing for low-confidence content
+RULES:
+- Return ONLY valid JSON, no markdown
+- EXACTLY ${items.length} sections, one per post
+- All fields required in each section
+- Never say "no caption available" — write a short teaser instead
+- Low-confidence posts get tight, honest copy — not filler
 `
 
   try {
@@ -254,115 +234,87 @@ export async function generateNewsletter(
   return generateNewsletterFromNormalized(normalizedItems)
 }
 
-// Fallback emojis and headlines for when AI is unavailable
-const fallbackEmojis = ['✨', '🔥', '💫', '⭐', '🎯', '💡', '🌟', '📸', '🎬', '👀']
-const fallbackHeadlinesWithCaption = [
-  'WORTH A SECOND LOOK',
-  'THIS ONE STOOD OUT',
-  'SAVED FOR LATER',
-  'CAUGHT YOUR EYE',
-  'ONE TO REMEMBER',
-]
-const fallbackHeadlinesReel = [
-  'REEL TALK',
-  'ON REPEAT',
-  'SCROLL STOPPER',
-  'MUST-SEE REEL',
-  'VIDEO GOLD',
-]
-const fallbackHeadlinesPhoto = [
-  'VISUAL INSPO',
-  'PICTURE PERFECT',
-  'FRAME WORTHY',
-  'AESTHETIC GOALS',
-  'CAPTURED MOMENT',
-]
+// --- Fallback copy (Morning Brew tone) ---
+
+const fallbackHeadlines: Record<string, string[]> = {
+  caption: ['WORTH ANOTHER LOOK', 'THIS ONE HIT', 'SAVED FOR A REASON', 'DON\'T SLEEP ON THIS'],
+  reel:    ['REEL TALK', 'STOP SCROLLING', 'MUST WATCH', 'ON REPEAT'],
+  photo:   ['FRAME THIS ONE', 'VISUAL GOLD', 'THE AESTHETIC', 'CAUGHT YOUR EYE'],
+}
+
 const fallbackBodies = [
-  'You saved this one for a reason. <b>Tap through to see what caught your attention</b> — sometimes your feed knows what you need.',
-  'This made the cut in your scroll session. <b>Worth another look</b> when you have a moment.',
-  'Something about this one made you stop scrolling. <b>Check it out</b> and remember why.',
-  'Your past self saved this for your future self. <b>Time to see what the fuss was about</b>.',
-  'This landed in your saves — <b>a sign it deserves your attention</b>.',
+  'Your past self saved this for a reason. <b>Worth the tap-through</b> when you have a sec.',
+  'Something here made you stop scrolling. <b>That instinct was probably right.</b>',
+  'This made the cut. <b>Time to revisit what caught your eye.</b>',
+  'Landed in your saves — <b>your feed has good taste</b>.',
 ]
 
 /**
- * Generate fallback newsletter from normalized items when AI is unavailable
+ * Generate fallback newsletter from normalized items when AI is unavailable.
+ * Uses the same tight, casual tone as the AI version.
  */
 export function generateFallbackNewsletterFromNormalized(items: NormalizedDigestItem[]): NewsletterContent {
   const greetings = [
-    "Here's what you saved today.",
-    "Your saved posts, ready to revisit.",
-    "Look what made it to your digest.",
-    "The good stuff from your feed.",
+    'Good stuff in your saves today.',
+    'Your feed came through.',
+    'Some things worth a second look.',
+    'Here\'s what caught your eye.',
   ]
 
   return {
     subject_line: items.length === 1
-      ? "You saved something good ✨"
-      : `${items.length} posts you saved — take a look`,
+      ? 'You saved something worth revisiting'
+      : `${items.length} saves from your feed`,
     greeting: greetings[Math.floor(Math.random() * greetings.length)],
     sections: items.map((item, index) => {
       const isReel = item.igType === 'REEL'
       const isVideo = item.igType === 'VIDEO'
       const hasCaption = item.captionText && item.captionText.trim().length > 0
-
-      // Pick emoji - use type-specific emoji from normalize
       const emoji = getContentTypeEmoji(item.igType)
 
-      // Pick headline based on content type and confidence
-      let headlines: string[]
-      if (hasCaption) {
-        headlines = fallbackHeadlinesWithCaption
-      } else if (isReel || isVideo) {
-        headlines = fallbackHeadlinesReel
-      } else {
-        headlines = fallbackHeadlinesPhoto
-      }
-      const headline = headlines[index % headlines.length]
+      // Pick headline pool
+      const pool = (isReel || isVideo) ? fallbackHeadlines.reel
+        : hasCaption ? fallbackHeadlines.caption
+        : fallbackHeadlines.photo
+      const headline = pool[index % pool.length]
 
-      // Create title (for new format)
+      // Title case version
       const title = headline.split(' ').map(w =>
         w.charAt(0) + w.slice(1).toLowerCase()
       ).join(' ')
 
-      // Create body and lede
-      let body: string
+      // Lede + body
       let lede: string
+      let body: string
       if (hasCaption) {
-        const truncatedCaption = item.captionText!.length > 200
-          ? item.captionText!.slice(0, 200) + '...'
+        lede = item.captionText!.length > 120
+          ? item.captionText!.slice(0, 120).trim() + '...'
           : item.captionText!
-        body = truncatedCaption
-        lede = item.captionText!.length > 150
-          ? item.captionText!.slice(0, 150) + '...'
+        body = item.captionText!.length > 200
+          ? item.captionText!.slice(0, 200).trim() + '...'
           : item.captionText!
       } else {
+        lede = `A ${getContentTypeLabel(item.igType).toLowerCase()} that made you hit save.`
         body = fallbackBodies[index % fallbackBodies.length]
-        lede = `You saved this ${item.igType.toLowerCase()}. Worth revisiting to see what caught your attention.`
       }
 
-      // Generate simple takeaways
+      // Takeaways
       const takeaways: string[] = []
-      if (hasCaption) {
-        takeaways.push('Review the full caption for context')
-        if (item.creatorHandle) {
-          takeaways.push(`Content from @${item.creatorHandle}`)
-        }
-      } else {
-        takeaways.push('Tap through to remember why you saved this')
-        takeaways.push(`${getContentTypeLabel(item.igType)} content worth reviewing`)
+      if (hasCaption && item.creatorHandle) {
+        takeaways.push(`From @${item.creatorHandle} — worth following if you aren't already`)
       }
+      takeaways.push('Tap through for the full thing')
 
       return {
         emoji,
         headline,
         title,
         lede,
-        takeaways,
         body,
+        takeaways,
         why_you_saved_it: hasCaption
-          ? 'Something in this caption resonated with you.'
-          : 'The visual or content caught your eye while scrolling.',
+          ? 'Something in here clicked with you.'
+          : 'The kind of thing you\'ll be glad you saved.',
         content_type_label: getContentTypeLabel(item.igType),
         content_type_emoji: getContentTypeEmoji(item.igType),
         sources_attribution: generateSourcesAttribution(item),
@@ -371,7 +323,7 @@ export function generateFallbackNewsletterFromNormalized(items: NormalizedDigest
       }
     }),
     big_picture: items.length > 1
-      ? "That's a wrap on today's saves. Your feed is a reflection of what inspires you — keep curating the good stuff."
+      ? 'That\'s today\'s round-up. Your saves say a lot about where your head is at — keep curating.'
       : '',
   }
 }
