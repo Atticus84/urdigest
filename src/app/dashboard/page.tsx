@@ -7,10 +7,6 @@ import { createClient } from '@/lib/supabase/client'
 import { ensureUserProfile } from '@/lib/supabase/ensure-profile'
 import type { Digest, User, SavedPost } from '@/types/database'
 
-function estimateReadTime(postCount: number): number {
-  return Math.max(1, Math.round(postCount * 0.8))
-}
-
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [digests, setDigests] = useState<Digest[]>([])
@@ -30,7 +26,6 @@ export default function DashboardPage() {
     const userData = await ensureUserProfile(supabase, authUser.id, authUser.email!)
     setUser(userData)
 
-    // Load digests
     try {
       const res = await fetch('/api/digests/list')
       if (res.ok) {
@@ -39,7 +34,6 @@ export default function DashboardPage() {
       }
     } catch {}
 
-    // Load recent posts
     const { data: posts } = await supabase
       .from('saved_posts')
       .select('*')
@@ -48,7 +42,6 @@ export default function DashboardPage() {
       .limit(6)
     setRecentPosts(posts || [])
 
-    // Count pending
     const { count } = await supabase
       .from('saved_posts')
       .select('id', { count: 'exact', head: true })
@@ -63,164 +56,162 @@ export default function DashboardPage() {
     return (
       <div className="text-center py-20">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-instagram-pink mx-auto mb-4" />
-        <p className="text-gray-400 text-sm">Loading your dashboard...</p>
+        <p className="text-gray-400 text-sm">Loading...</p>
       </div>
     )
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div>
       {/* Welcome */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">
+      <div className="mb-5 md:mb-8">
+        <h1 className="text-xl md:text-2xl font-semibold text-gray-900 mb-0.5">
           {getGreeting()}{user?.instagram_username ? `, @${user.instagram_username}` : ''}
         </h1>
-        <p className="text-gray-400 text-sm">
+        <p className="text-gray-400 text-xs md:text-sm">
           Here&apos;s your urdigest overview
         </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+      {/* Stats — 2x2 grid always, compact on mobile */}
+      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-4 mb-6 md:mb-10">
         <StatCard label="Posts Saved" value={user?.total_posts_saved || 0} icon="📌" />
         <StatCard label="Digests Sent" value={user?.total_digests_sent || 0} icon="📬" />
         <StatCard label="Pending" value={pendingCount} icon="⏳" accent={pendingCount > 0} />
         <StatCard label="Followers" value={user?.follower_count || 0} icon="👥" />
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-        <Link
-          href="/dashboard/library"
-          className="flex items-center gap-4 p-5 bg-white border border-gray-100 rounded-xl hover:border-instagram-pink/30 hover:shadow-sm transition group"
-        >
-          <span className="text-2xl">📚</span>
-          <div>
-            <p className="text-sm font-semibold text-gray-900 group-hover:text-instagram-pink transition">Browse Library</p>
-            <p className="text-xs text-gray-400">Search and filter all your saves</p>
-          </div>
-        </Link>
-        <Link
-          href="/dashboard/ask"
-          className="flex items-center gap-4 p-5 bg-white border border-gray-100 rounded-xl hover:border-instagram-pink/30 hover:shadow-sm transition group"
-        >
-          <span className="text-2xl">🧠</span>
-          <div>
-            <p className="text-sm font-semibold text-gray-900 group-hover:text-instagram-pink transition">Ask AI</p>
-            <p className="text-xs text-gray-400">Chat with your saved content</p>
-          </div>
-        </Link>
-        <Link
-          href="/dashboard/sharing"
-          className="flex items-center gap-4 p-5 bg-white border border-gray-100 rounded-xl hover:border-instagram-pink/30 hover:shadow-sm transition group"
-        >
-          <span className="text-2xl">🔗</span>
-          <div>
-            <p className="text-sm font-semibold text-gray-900 group-hover:text-instagram-pink transition">Share Digest</p>
-            <p className="text-xs text-gray-400">Grow your followers</p>
-          </div>
-        </Link>
+      {/* Quick Actions — horizontal scroll on mobile, grid on desktop */}
+      <div className="mb-6 md:mb-10 -mx-4 px-4 md:mx-0 md:px-0">
+        <div className="flex md:grid md:grid-cols-3 gap-3 overflow-x-auto pb-1 scrollbar-hide">
+          <Link
+            href="/dashboard/library"
+            className="flex items-center gap-3 p-4 md:p-5 bg-white border border-gray-100 rounded-xl active:bg-gray-50 transition group shrink-0 w-[70vw] md:w-auto"
+          >
+            <span className="text-xl md:text-2xl">📚</span>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Browse Library</p>
+              <p className="text-[11px] md:text-xs text-gray-400">Search all your saves</p>
+            </div>
+          </Link>
+          <Link
+            href="/dashboard/ask"
+            className="flex items-center gap-3 p-4 md:p-5 bg-white border border-gray-100 rounded-xl active:bg-gray-50 transition group shrink-0 w-[70vw] md:w-auto"
+          >
+            <span className="text-xl md:text-2xl">🧠</span>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Ask AI</p>
+              <p className="text-[11px] md:text-xs text-gray-400">Chat with your content</p>
+            </div>
+          </Link>
+          <Link
+            href="/dashboard/sharing"
+            className="flex items-center gap-3 p-4 md:p-5 bg-white border border-gray-100 rounded-xl active:bg-gray-50 transition group shrink-0 w-[70vw] md:w-auto"
+          >
+            <span className="text-xl md:text-2xl">🔗</span>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Share Digest</p>
+              <p className="text-[11px] md:text-xs text-gray-400">Grow your followers</p>
+            </div>
+          </Link>
+        </div>
       </div>
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        {/* Recent Digests */}
-        <div className="lg:col-span-3">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">Recent Digests</h2>
-          </div>
-
-          {digests.length === 0 ? (
-            <div className="text-center py-12 bg-gray-50/50 rounded-xl border border-gray-100">
-              <p className="text-gray-400 text-sm mb-3">No digests yet</p>
-              <p className="text-gray-300 text-xs">Save some posts and your first digest will appear here.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {digests.map((digest) => {
-                const sentDate = new Date(digest.sent_at)
-                return (
-                  <Link
-                    key={digest.id}
-                    href={`/dashboard/digests/${digest.id}`}
-                    className="block bg-white border border-gray-100 rounded-xl p-4 hover:border-instagram-pink/30 hover:shadow-sm transition group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{digest.subject || `Digest · ${format(sentDate, 'MMM d')}`}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {digest.post_count} posts · {format(sentDate, 'MMM d, h:mm a')}
-                        </p>
-                      </div>
-                      <span className="text-xs font-medium text-gray-400 group-hover:text-instagram-pink transition">
-                        View →
-                      </span>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Recent Saves */}
-        <div className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">Recent Saves</h2>
-            <Link href="/dashboard/library" className="text-xs text-gray-400 hover:text-instagram-pink transition">
-              View all
+      {/* Recent Saves — photo grid */}
+      {recentPosts.length > 0 && (
+        <div className="mb-6 md:mb-10">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs md:text-sm font-semibold text-gray-900 uppercase tracking-wider">Recent Saves</h2>
+            <Link href="/dashboard/library" className="text-xs text-gray-400 active:text-instagram-pink">
+              View all →
             </Link>
           </div>
+          <div className="grid grid-cols-3 gap-1.5 md:gap-2">
+            {recentPosts.map((post) => (
+              <Link key={post.id} href="/dashboard/library" className="group">
+                <div className="aspect-square rounded-lg md:rounded-xl overflow-hidden bg-gray-100 relative">
+                  {post.thumbnail_url ? (
+                    <img
+                      src={post.thumbnail_url}
+                      alt=""
+                      loading="lazy"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-300">
+                      <span className="text-lg">📌</span>
+                    </div>
+                  )}
+                  {post.post_type && (
+                    <span className="absolute bottom-1 left-1 text-[8px] font-bold bg-black/50 text-white px-1.5 py-0.5 rounded-full uppercase">
+                      {post.post_type}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
-          {recentPosts.length === 0 ? (
-            <div className="text-center py-12 bg-gray-50/50 rounded-xl border border-gray-100">
-              <p className="text-gray-400 text-sm">No posts saved yet</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-2">
-              {recentPosts.map((post) => (
+      {/* Recent Digests */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs md:text-sm font-semibold text-gray-900 uppercase tracking-wider">Recent Digests</h2>
+        </div>
+
+        {digests.length === 0 ? (
+          <div className="text-center py-10 bg-gray-50/50 rounded-xl border border-gray-100">
+            <p className="text-gray-400 text-sm mb-1">No digests yet</p>
+            <p className="text-gray-300 text-xs">Save some posts and your first digest will appear here.</p>
+          </div>
+        ) : (
+          <div className="space-y-2 md:space-y-3">
+            {digests.map((digest) => {
+              const sentDate = new Date(digest.sent_at)
+              return (
                 <Link
-                  key={post.id}
-                  href="/dashboard/library"
-                  className="group"
+                  key={digest.id}
+                  href={`/dashboard/digests/${digest.id}`}
+                  className="block bg-white border border-gray-100 rounded-xl p-3.5 md:p-4 active:bg-gray-50 transition group"
                 >
-                  <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 relative">
-                    {post.thumbnail_url ? (
-                      <img
-                        src={post.thumbnail_url}
-                        alt=""
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-300">
-                        <span className="text-lg">📌</span>
-                      </div>
-                    )}
-                    {post.post_type && (
-                      <span className="absolute bottom-1 left-1 text-[8px] font-bold bg-black/50 text-white px-1.5 py-0.5 rounded-full uppercase">
-                        {post.post_type}
-                      </span>
-                    )}
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {digest.subject || `Digest · ${format(sentDate, 'MMM d')}`}
+                      </p>
+                      <p className="text-[11px] md:text-xs text-gray-400 mt-0.5">
+                        {digest.post_count} posts · {format(sentDate, 'MMM d, h:mm a')}
+                      </p>
+                    </div>
+                    <span className="text-xs font-medium text-gray-400 ml-3 shrink-0">
+                      →
+                    </span>
                   </div>
                 </Link>
-              ))}
-            </div>
-          )}
-        </div>
+              )
+            })}
+          </div>
+        )}
       </div>
+
+      <style jsx global>{`
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   )
 }
 
 function StatCard({ label, value, icon, accent }: { label: string; value: number; icon: string; accent?: boolean }) {
   return (
-    <div className={`bg-white border rounded-xl p-4 ${accent ? 'border-instagram-pink/30' : 'border-gray-100'}`}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-lg">{icon}</span>
-        {accent && <span className="w-2 h-2 bg-instagram-pink rounded-full animate-pulse" />}
+    <div className={`bg-white border rounded-xl p-3 md:p-4 ${accent ? 'border-instagram-pink/30' : 'border-gray-100'}`}>
+      <div className="flex items-center justify-between mb-1 md:mb-2">
+        <span className="text-base md:text-lg">{icon}</span>
+        {accent && <span className="w-1.5 h-1.5 bg-instagram-pink rounded-full animate-pulse" />}
       </div>
-      <p className={`text-2xl font-bold ${accent ? 'text-instagram-pink' : 'text-gray-900'}`}>{value}</p>
-      <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+      <p className={`text-xl md:text-2xl font-bold ${accent ? 'text-instagram-pink' : 'text-gray-900'}`}>{value}</p>
+      <p className="text-[10px] md:text-xs text-gray-400 mt-0.5">{label}</p>
     </div>
   )
 }
