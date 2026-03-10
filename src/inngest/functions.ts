@@ -1,70 +1,129 @@
 import { inngest } from './client'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { generateNewsletter, generateFallbackNewsletter } from '@/lib/ai/summarize'
+import {
+  generateNewsletterFromNormalized,
+  generateFallbackNewsletterFromNormalized,
+} from '@/lib/ai/summarize'
+import { normalizeInstagramPosts } from '@/lib/instagram/normalize'
 import { sendDigestEmail, sendTrialEndedEmail } from '@/lib/email/send'
 import { format } from 'date-fns'
 import { enrichInstagramPost } from '@/lib/content-extraction/enrich'
 import { SavedPost } from '@/types/database'
 
+/**
+ * Daily digest — fan-out architecture.
+ *
+ * Instead of processing every user sequentially inside a single long-running
+ * function (which risks timeouts and blocks all users if one is slow), we:
+ *   1. Fetch eligible user IDs.
+ *   2. Fan out by sending a per-user event for each.
+ *
+ * Each per-user digest runs as its own Inngest function invocation with
+ * independent retries and timeouts.
+ */
 export const dailyDigest = inngest.createFunction(
   { id: 'daily-digest', name: 'Generate and send daily digests' },
   { cron: '0 6 * * *' }, // Run at 6am daily
-  async ({ event, step }) => {
+  async ({ step }) => {
     // Get all users who should receive digests
-    const { data: users, error } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .eq('digest_enabled', true)
-      .in('subscription_status', ['trial', 'active'])
+    const users = await step.run('fetch-eligible-users', async () => {
+      const { data, error } = await supabaseAdmin
+        .from('users')
+        .select('id')
+        .eq('digest_enabled', true)
+        .in('subscription_status', ['trial', 'active'])
 
-    if (error || !users) {
-      console.error('Failed to fetch users:', error)
-      return { error: 'Failed to fetch users' }
-    }
-
-    console.log(`Processing digests for ${users.length} users`)
-
-    const results = {
-      success: 0,
-      skipped: 0,
-      failed: 0,
-    }
-
-    // Process each user
-    for (const user of users) {
-      try {
-        await step.run(`digest-for-${user.id}`, async () => {
-          return await generateDigestForUser(user)
-        })
-        results.success++
-      } catch (error) {
-        console.error(`Failed to generate digest for user ${user.id}:`, error)
-        results.failed++
+      if (error) {
+        throw new Error(`Failed to fetch users: ${error.message}`)
       }
+
+      return data || []
+    })
+
+    if (users.length === 0) {
+      return { dispatched: 0 }
     }
 
-    return results
+    console.log(`Dispatching digest events for ${users.length} users`)
+
+    // Fan out: send a per-user event so each digest runs independently
+    await step.sendEvent(
+      'fan-out-digests',
+      users.map((user) => ({
+        name: 'digest/generate-for-user' as const,
+        data: { userId: user.id },
+      }))
+    )
+
+    return { dispatched: users.length }
   }
 )
 
-async function generateDigestForUser(user: any) {
-  // Get unprocessed posts from the last 24 hours
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+/**
+ * Per-user digest generation — triggered by the fan-out from dailyDigest
+ * or by a manual trigger. Each invocation is independent with its own
+ * retry budget and timeout.
+ */
+export const generateUserDigest = inngest.createFunction(
+  {
+    id: 'generate-user-digest',
+    name: 'Generate and send digest for a single user',
+    retries: 2,
+  },
+  { event: 'digest/generate-for-user' },
+  async ({ event, step }) => {
+    const userId = event.data.userId as string
+    if (!userId) {
+      throw new Error('Missing userId in event data')
+    }
 
-  const { data: posts, error } = await supabaseAdmin
-    .from('saved_posts')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('processed', false)
-    .gte('saved_at', yesterday)
-    .order('saved_at', { ascending: false })
+    const user = await step.run('fetch-user', async () => {
+      const { data, error } = await supabaseAdmin
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single()
 
-  if (error) {
-    throw new Error(`Failed to fetch posts: ${error.message}`)
+      if (error) throw new Error(`Failed to fetch user ${userId}: ${error.message}`)
+      return data
+    })
+
+    if (!user) {
+      return { skipped: true, reason: 'user_not_found' }
+    }
+
+    return await generateDigestForUser(user, step)
   }
+)
+
+async function generateDigestForUser(user: any, step?: any) {
+  // Helper: wrap in step.run if step is available (Inngest context),
+  // otherwise run directly (for manual/testing use).
+  const run = step
+    ? <T>(id: string, fn: () => Promise<T>) => step.run(id, fn)
+    : <T>(_id: string, fn: () => Promise<T>) => fn()
+
+  // Get unprocessed posts from the last 24 hours
+  const posts: SavedPost[] = await run('fetch-posts', async () => {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+    const { data, error } = await supabaseAdmin
+      .from('saved_posts')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('processed', false)
+      .gte('saved_at', yesterday)
+      .order('saved_at', { ascending: false })
+
+    if (error) {
+      throw new Error(`Failed to fetch posts: ${error.message}`)
+    }
+
+    return (data || []) as SavedPost[]
+  })
 
   // Skip if no posts
-  if (!posts || posts.length === 0) {
+  if (posts.length === 0) {
     console.log(`No posts for user ${user.id}, skipping`)
     return { skipped: true }
   }
@@ -75,109 +134,125 @@ async function generateDigestForUser(user: any) {
     return { skipped: true }
   }
 
-  // Generate AI newsletter
-  let newsletter
-  let tokensUsed = 0
-  let aiCost = 0
+  // Normalize posts once, use everywhere (avoids deprecated legacy paths)
+  const normalizedItems = normalizeInstagramPosts(posts)
 
-  try {
-    const result = await generateNewsletter(posts)
-    newsletter = result.newsletter
-    tokensUsed = result.tokensUsed
-    aiCost = result.cost
-  } catch (error) {
-    console.error('AI newsletter generation failed, using fallback:', error)
-    newsletter = generateFallbackNewsletter(posts)
-  }
+  // Generate AI newsletter
+  const { newsletter, tokensUsed, aiCost } = await run('generate-newsletter', async () => {
+    try {
+      const result = await generateNewsletterFromNormalized(normalizedItems)
+      return {
+        newsletter: result.newsletter,
+        tokensUsed: result.tokensUsed,
+        aiCost: result.cost,
+      }
+    } catch (error) {
+      console.error('AI newsletter generation failed, using fallback:', error)
+      return {
+        newsletter: generateFallbackNewsletterFromNormalized(normalizedItems),
+        tokensUsed: 0,
+        aiCost: 0,
+      }
+    }
+  })
 
   const dateStr = format(new Date(), 'MMMM d, yyyy')
 
-  // Get additional recipients (legacy)
-  const { data: recipients } = await supabaseAdmin
-    .from('digest_recipients')
-    .select('email')
-    .eq('user_id', user.id)
-    .eq('confirmed', true)
-
-  // Get followers
-  const { data: followers } = await supabaseAdmin
-    .from('digest_followers')
-    .select('email, unsubscribe_token')
-    .eq('user_id', user.id)
-    .eq('confirmed', true)
-    .is('unsubscribed_at', null)
-
-  const digestName = user.digest_name || `${user.instagram_username || user.email}'s digest`
-
   // Send to owner
-  const ownerEmailId = await sendDigestEmail(user.email, newsletter, dateStr, posts.length)
-
-  // Send to legacy recipients
-  const legacyEmails = new Set<string>([user.email])
-  if (recipients && recipients.length > 0) {
-    for (const r of recipients) {
-      if (!legacyEmails.has(r.email)) {
-        legacyEmails.add(r.email)
-        await sendDigestEmail(r.email, newsletter, dateStr, posts.length)
-      }
-    }
-  }
-
-  // Send to followers with follower context
-  let followersSentCount = 0
-  if (followers && followers.length > 0) {
-    for (const f of followers) {
-      if (legacyEmails.has(f.email)) continue
-      try {
-        await sendDigestEmail(f.email, newsletter, dateStr, posts.length, {
-          unsubscribeToken: f.unsubscribe_token,
-          creatorName: digestName,
-          followSlug: user.follow_slug || null,
-        })
-        followersSentCount++
-      } catch (err) {
-        console.error(`Failed to send to follower ${f.email}:`, err)
-      }
-    }
-  }
-
-  // Save digest record
-  await supabaseAdmin.from('digests').insert({
-    user_id: user.id,
-    subject: newsletter.subject_line,
-    summary: newsletter.big_picture || null,
-    post_ids: posts.map(p => p.id),
-    post_count: posts.length,
-    ai_tokens_used: tokensUsed,
-    ai_cost_usd: aiCost.toString(),
-    resend_email_id: ownerEmailId,
-    sent_to_followers_count: followersSentCount,
+  const ownerEmailId = await run('send-owner-email', async () => {
+    return sendDigestEmail(user.email, newsletter, dateStr, posts.length)
   })
 
-  // Mark posts as processed
-  await supabaseAdmin
-    .from('saved_posts')
-    .update({
-      processed: true,
-      processed_at: new Date().toISOString(),
+  // Send to legacy recipients and followers
+  const { followersSentCount } = await run('send-recipient-emails', async () => {
+    // Get additional recipients (legacy)
+    const { data: recipients } = await supabaseAdmin
+      .from('digest_recipients')
+      .select('email')
+      .eq('user_id', user.id)
+      .eq('confirmed', true)
+
+    // Get followers
+    const { data: followers } = await supabaseAdmin
+      .from('digest_followers')
+      .select('email, unsubscribe_token')
+      .eq('user_id', user.id)
+      .eq('confirmed', true)
+      .is('unsubscribed_at', null)
+
+    const digestName = user.digest_name || `${user.instagram_username || user.email}'s digest`
+    const sentEmails = new Set<string>([user.email])
+    let followerCount = 0
+
+    // Legacy recipients
+    if (recipients && recipients.length > 0) {
+      for (const r of recipients) {
+        if (!sentEmails.has(r.email)) {
+          sentEmails.add(r.email)
+          await sendDigestEmail(r.email, newsletter, dateStr, posts.length)
+        }
+      }
+    }
+
+    // Followers
+    if (followers && followers.length > 0) {
+      for (const f of followers) {
+        if (sentEmails.has(f.email)) continue
+        try {
+          await sendDigestEmail(f.email, newsletter, dateStr, posts.length, {
+            unsubscribeToken: f.unsubscribe_token,
+            creatorName: digestName,
+            followSlug: user.follow_slug || null,
+          })
+          followerCount++
+        } catch (err) {
+          console.error(`Failed to send to follower ${f.email}:`, err)
+        }
+      }
+    }
+
+    return { followersSentCount: followerCount }
+  })
+
+  // Save digest record and mark posts as processed
+  await run('save-digest-record', async () => {
+    await supabaseAdmin.from('digests').insert({
+      user_id: user.id,
+      subject: newsletter.subject_line,
+      summary: newsletter.big_picture || null,
+      post_ids: posts.map((p) => p.id),
+      post_count: posts.length,
+      ai_tokens_used: tokensUsed,
+      ai_cost_usd: aiCost.toString(),
+      resend_email_id: ownerEmailId,
+      sent_to_followers_count: followersSentCount,
     })
-    .in('id', posts.map(p => p.id))
 
-  // Update user stats
-  const updates: any = {
-    total_digests_sent: user.total_digests_sent + 1,
-  }
+    await supabaseAdmin
+      .from('saved_posts')
+      .update({
+        processed: true,
+        processed_at: new Date().toISOString(),
+      })
+      .in(
+        'id',
+        posts.map((p) => p.id)
+      )
+  })
 
-  // If trial user, mark trial as used and send trial ended email
-  if (user.subscription_status === 'trial') {
-    updates.trial_digest_sent = true
-    await sendTrialEndedEmail(user.email)
-  }
+  // Update user stats atomically to prevent race conditions (#2)
+  await run('update-user-stats', async () => {
+    const isTrialUser = user.subscription_status === 'trial'
 
-  await supabaseAdmin
-    .from('users')
-    .update(updates)
-    .eq('id', user.id)
+    await supabaseAdmin.rpc('increment_digests_sent', {
+      p_user_id: user.id,
+      p_mark_trial_used: isTrialUser,
+    })
+
+    if (isTrialUser) {
+      await sendTrialEndedEmail(user.email)
+    }
+  })
 
   console.log(`Digest sent successfully for user ${user.id}`)
 
@@ -189,24 +264,25 @@ async function generateDigestForUser(user: any) {
   }
 }
 
-// Manual trigger for testing
+// Manual trigger for testing — dispatches the same per-user event
 export const manualDigest = inngest.createFunction(
   { id: 'manual-digest', name: 'Manually trigger digest for a user' },
   { event: 'digest/manual' },
-  async ({ event }) => {
+  async ({ event, step }) => {
     const { userId } = event.data
 
-    const { data: user } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single()
+    const user = await step.run('fetch-user', async () => {
+      const { data } = await supabaseAdmin
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single()
 
-    if (!user) {
-      throw new Error('User not found')
-    }
+      if (!data) throw new Error('User not found')
+      return data
+    })
 
-    return await generateDigestForUser(user)
+    return await generateDigestForUser(user, step)
   }
 )
 

@@ -77,20 +77,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update user stats
+    // Update user stats atomically to prevent race conditions
     if (synced > 0) {
-      const { data: currentUser } = await supabase
-        .from('users')
-        .select('total_posts_saved')
-        .eq('id', user.id)
-        .single()
+      await supabase.rpc('increment_posts_saved', {
+        p_user_id: user.id,
+        p_amount: synced,
+      })
 
       await supabase
         .from('users')
-        .update({
-          total_posts_saved: (currentUser?.total_posts_saved || 0) + synced,
-          last_post_received_at: new Date().toISOString(),
-        })
+        .update({ last_post_received_at: new Date().toISOString() })
         .eq('id', user.id)
     }
 

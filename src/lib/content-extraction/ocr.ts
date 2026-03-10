@@ -26,35 +26,54 @@ function resolveNodeWorkerPath() {
 }
 
 /**
- * Get or create Tesseract worker (singleton for performance)
+ * Shared worker creation options — ensures every worker gets the same
+ * workerPath, logger, and errorHandler regardless of how it's created.
+ */
+function getWorkerOptions() {
+  return {
+    workerPath: resolveNodeWorkerPath(),
+    logger: (m: { status: string; progress: number }) => {
+      if (process.env.OCR_DEBUG === 'true') {
+        console.log(`[OCR Worker] ${m.status} ${(m.progress * 100).toFixed(0)}%`)
+      }
+    },
+    errorHandler: (err: any) => {
+      console.error('[OCR Worker] error', err)
+    },
+  }
+}
+
+/**
+ * Get or create Tesseract worker (singleton for the default 'eng' language).
  */
 async function getWorker(): Promise<Worker> {
   if (!_worker) {
     console.log('[OCR] Initializing Tesseract worker...')
-    const workerPath = resolveNodeWorkerPath()
+    const options = getWorkerOptions()
 
-    if (!fs.existsSync(workerPath)) {
-      throw new Error(`OCR worker script not found: ${workerPath}`)
+    if (!fs.existsSync(options.workerPath)) {
+      throw new Error(`OCR worker script not found: ${options.workerPath}`)
     }
 
-    _worker = await createWorker(
-      'eng',
-      undefined,
-      {
-        workerPath,
-        logger: (m) => {
-          if (process.env.OCR_DEBUG === 'true') {
-            console.log(`[OCR Worker] ${m.status} ${(m.progress * 100).toFixed(0)}%`)
-          }
-        },
-        errorHandler: (err) => {
-          console.error('[OCR Worker] error', err)
-        },
-      }
-    ) // English language
+    _worker = await createWorker('eng', undefined, options)
     console.log('[OCR] Worker initialized')
   }
   return _worker
+}
+
+/**
+ * Create a one-off worker for a non-default language.
+ * This avoids corrupting the singleton English worker.
+ */
+async function createLanguageWorker(language: string): Promise<Worker> {
+  console.log(`[OCR] Creating one-off worker for language: ${language}`)
+  const options = getWorkerOptions()
+
+  if (!fs.existsSync(options.workerPath)) {
+    throw new Error(`OCR worker script not found: ${options.workerPath}`)
+  }
+
+  return createWorker(language, undefined, options)
 }
 
 /**
@@ -97,18 +116,23 @@ export async function extractTextFromImage(
 
     console.log(`[OCR] Starting OCR for: ${imagePath}`)
 
-    // Get worker
-    const worker = await getWorker()
-
-    // If custom language, reinitialize worker
-    if (options?.language && options.language !== 'eng') {
-      console.log(`[OCR] Switching to language: ${options.language}`)
-      await worker.terminate()
-      _worker = await createWorker(options.language)
-    }
+    // Use a one-off worker for non-default languages to avoid corrupting the
+    // English singleton. The one-off worker is terminated after use.
+    const isCustomLanguage = options?.language && options.language !== 'eng'
+    const worker = isCustomLanguage
+      ? await createLanguageWorker(options!.language!)
+      : await getWorker()
 
     // Run OCR
-    const result: RecognizeResult = await worker.recognize(imagePath)
+    let result: RecognizeResult
+    try {
+      result = await worker.recognize(imagePath)
+    } finally {
+      // Only terminate one-off workers, never the singleton
+      if (isCustomLanguage) {
+        await worker.terminate()
+      }
+    }
 
     const duration = (Date.now() - startTime) / 1000
 

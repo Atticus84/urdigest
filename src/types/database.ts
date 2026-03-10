@@ -12,7 +12,14 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_posts_saved: {
+        Args: { p_user_id: string; p_amount?: number }
+        Returns: undefined
+      }
+      increment_digests_sent: {
+        Args: { p_user_id: string; p_mark_trial_used?: boolean }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
