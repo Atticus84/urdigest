@@ -740,6 +740,10 @@ async function saveInstagramPost(userId: string, payload: any, attachmentType?: 
       console.log(`Fetched oEmbed metadata for ${postUrl}:`, metadata)
     }
 
+    // When oEmbed fails (e.g. CDN URLs from DM shares), use the CDN URL itself
+    // as the thumbnail — it IS the actual media content
+    const thumbnailUrl = metadata?.thumbnail_url || (postUrl.includes('fbsbx.com') || postUrl.includes('cdninstagram.com') ? postUrl : null)
+
     const { data: insertedPost, error: insertError } = await supabaseAdmin
       .from('saved_posts')
       .insert({
@@ -749,7 +753,7 @@ async function saveInstagramPost(userId: string, payload: any, attachmentType?: 
         post_type: postType,
         caption: metadata?.title || null,
         author_username: metadata?.author_name || null,
-        thumbnail_url: metadata?.thumbnail_url || null,
+        thumbnail_url: thumbnailUrl,
       })
       .select('id,user_id')
       .single()
