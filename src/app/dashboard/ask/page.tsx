@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import DOMPurify from 'dompurify'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -69,7 +70,8 @@ export default function AskPage() {
         content: data.reply,
         postsSearched: data.postsSearched,
       }])
-    } catch {
+    } catch (error) {
+      console.error('AI chat error:', error)
       setMessages([...newMessages, {
         role: 'assistant',
         content: 'Sorry, something went wrong. Try again in a moment.',
@@ -199,6 +201,12 @@ export default function AskPage() {
 function FormattedMessage({ content }: { content: string }) {
   const lines = content.split('\n')
 
+  // Configure DOMPurify to only allow safe tags and attributes
+  const sanitize = (html: string) => DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['strong', 'b', 'a', 'em', 'i'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+  })
+
   return (
     <>
       {lines.map((line, i) => {
@@ -218,14 +226,14 @@ function FormattedMessage({ content }: { content: string }) {
           return (
             <p key={i} className="pl-3 py-0.5 text-[13px]" style={{ textIndent: '-10px' }}>
               <span className="text-gray-400 mr-1">•</span>
-              <span dangerouslySetInnerHTML={{ __html: withInstaLinks.replace(/^[\s]*[-•]\s*/, '') }} />
+              <span dangerouslySetInnerHTML={{ __html: sanitize(withInstaLinks.replace(/^[\s]*[-•]\s*/, '')) }} />
             </p>
           )
         }
 
         return (
           <p key={i} className={i > 0 ? 'mt-1.5' : ''}>
-            <span dangerouslySetInnerHTML={{ __html: withInstaLinks }} />
+            <span dangerouslySetInnerHTML={{ __html: sanitize(withInstaLinks) }} />
           </p>
         )
       })}

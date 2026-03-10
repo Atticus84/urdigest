@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
+import { z } from 'zod'
+
+const chatRequestSchema = z.object({
+  message: z.string().min(1).max(10000),
+  conversationHistory: z.array(z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string().max(10000),
+  })).max(20).default([]),
+})
 
 export const dynamic = 'force-dynamic'
 
@@ -19,11 +28,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { message, conversationHistory = [] } = await request.json()
+    const body = await request.json()
+    const parsed = chatRequestSchema.safeParse(body)
 
-    if (!message || typeof message !== 'string') {
-      return NextResponse.json({ error: 'Message is required' }, { status: 400 })
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
     }
+
+    const { message, conversationHistory } = parsed.data
 
     // RAG: Retrieve relevant posts based on the user's question
     const searchTerms = message.trim()
@@ -57,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     // Merge and deduplicate posts (relevant first, then recent for context)
     const seenIds = new Set<string>()
-    const contextPosts: any[] = []
+    const contextPosts: typeof relevantPosts = []
     for (const post of [...(relevantPosts || []), ...(recentPosts || [])]) {
       if (!seenIds.has(post.id)) {
         seenIds.add(post.id)
@@ -100,29 +112,29 @@ INSTRUCTIONS:
 - Be conversational, not robotic. Match the Morning Brew tone: sharp, casual, useful.`
 
     // Build messages array with conversation history
-    const messages: any[] = [
+    const chatMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt },
     ]
 
     // Add conversation history (last 10 messages)
     const recentHistory = conversationHistory.slice(-10)
     for (const msg of recentHistory) {
-      messages.push({
+      chatMessages.push({
         role: msg.role,
         content: msg.content,
       })
     }
 
-    messages.push({ role: 'user', content: message })
+    chatMessages.push({ role: 'user', content: message })
 
     const completion = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
-      messages,
+      messages: chatMessages,
       temperature: 0.7,
       max_tokens: 1000,
     })
 
-    const reply = completion.choices[0].message.content || 'Sorry, I couldn\'t generate a response.'
+    const reply = completion.choices?.[0]?.message?.content || 'Sorry, I couldn\'t generate a response.'
     const tokensUsed = completion.usage?.total_tokens || 0
 
     return NextResponse.json({

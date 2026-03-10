@@ -37,13 +37,13 @@ export default function SettingsPage() {
     const { data: authUser } = await supabase.auth.getUser()
 
     if (authUser.user) {
-      const userData = await ensureUserProfile(supabase, authUser.user.id, authUser.user.email!)
+      const userData = await ensureUserProfile(supabase, authUser.user.id, authUser.user.email || '')
 
       if (userData) {
         setUser(userData)
-        setDigestTime(userData.digest_time)
-        setTimezone(userData.timezone)
-        setDigestEnabled(userData.digest_enabled)
+        setDigestTime(userData.digest_time || '06:00:00')
+        setTimezone(userData.timezone || 'America/New_York')
+        setDigestEnabled(userData.digest_enabled ?? true)
       }
     }
 

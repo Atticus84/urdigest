@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { format } from 'date-fns'
 import type { SavedPost } from '@/types/database'
 
@@ -56,33 +56,44 @@ export default function LibraryPage() {
     return () => clearTimeout(timer)
   }, [query])
 
-  const fetchResults = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams()
-      if (debouncedQuery) params.set('q', debouncedQuery)
-      if (postType) params.set('type', postType)
-      if (author) params.set('author', author)
-      if (status) params.set('status', status)
-      params.set('sort', sortBy)
-      params.set('dir', sortDir)
-      params.set('page', String(page))
-      params.set('limit', '24')
-
-      const res = await fetch(`/api/posts/search?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        setResults(data)
-      }
-    } catch (error) {
-      console.error('Search failed:', error)
-    }
-    setLoading(false)
-  }, [debouncedQuery, postType, author, status, sortBy, sortDir, page])
-
   useEffect(() => {
+    const abortController = new AbortController()
+
+    const fetchResults = async () => {
+      setLoading(true)
+      try {
+        const params = new URLSearchParams()
+        if (debouncedQuery) params.set('q', debouncedQuery)
+        if (postType) params.set('type', postType)
+        if (author) params.set('author', author)
+        if (status) params.set('status', status)
+        params.set('sort', sortBy)
+        params.set('dir', sortDir)
+        params.set('page', String(page))
+        params.set('limit', '24')
+
+        const res = await fetch(`/api/posts/search?${params}`, {
+          signal: abortController.signal,
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (!abortController.signal.aborted) {
+            setResults(data)
+          }
+        }
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Search failed:', error)
+        }
+      }
+      if (!abortController.signal.aborted) {
+        setLoading(false)
+      }
+    }
+
     fetchResults()
-  }, [fetchResults])
+    return () => abortController.abort()
+  }, [debouncedQuery, postType, author, status, sortBy, sortDir, page])
 
   // Keyboard shortcut (desktop)
   useEffect(() => {

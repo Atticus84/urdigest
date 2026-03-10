@@ -20,8 +20,8 @@ export default function SubscriptionPage() {
     const { data: authUser } = await supabase.auth.getUser()
 
     if (authUser.user) {
-      const userData = await ensureUserProfile(supabase, authUser.user.id, authUser.user.email!)
-      setUser(userData)
+      const userData = await ensureUserProfile(supabase, authUser.user.id, authUser.user.email || '')
+      if (userData) setUser(userData)
     }
 
     setLoading(false)

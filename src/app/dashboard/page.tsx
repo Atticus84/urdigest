@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { ensureUserProfile } from '@/lib/supabase/ensure-profile'
 import type { Digest, User, SavedPost } from '@/types/database'
 
 export default function DashboardPage() {
+  const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [digests, setDigests] = useState<Digest[]>([])
   const [recentPosts, setRecentPosts] = useState<SavedPost[]>([])
@@ -16,14 +18,23 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadData = async () => {
     const supabase = createClient()
-    const { data: { user: authUser } } = await supabase.auth.getUser()
-    if (!authUser) { setLoading(false); return }
+    const { data: { user: authUser }, error } = await supabase.auth.getUser()
+    if (error || !authUser) {
+      router.push('/login')
+      return
+    }
 
-    const userData = await ensureUserProfile(supabase, authUser.id, authUser.email!)
+    const userData = await ensureUserProfile(supabase, authUser.id, authUser.email || '')
+    if (!userData) {
+      console.error('Failed to load user profile')
+      setLoading(false)
+      return
+    }
     setUser(userData)
 
     try {
@@ -32,7 +43,9 @@ export default function DashboardPage() {
         const data = await res.json()
         setDigests((data.digests || []).slice(0, 5))
       }
-    } catch {}
+    } catch (err) {
+      console.error('Failed to load digests:', err)
+    }
 
     const { data: posts } = await supabase
       .from('saved_posts')

@@ -13,14 +13,14 @@ export async function GET(request: NextRequest) {
     }
 
     const url = new URL(request.url)
-    const query = url.searchParams.get('q') || ''
+    const query = (url.searchParams.get('q') || '').slice(0, 500)
     const postType = url.searchParams.get('type') || ''
     const author = url.searchParams.get('author') || ''
     const status = url.searchParams.get('status') || '' // pending | digested | enriched
     const sortBy = url.searchParams.get('sort') || 'saved_at'
     const sortDir = url.searchParams.get('dir') || 'desc'
-    const page = parseInt(url.searchParams.get('page') || '1', 10)
-    const limit = Math.min(parseInt(url.searchParams.get('limit') || '24', 10), 100)
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10) || 1)
+    const limit = Math.min(Math.max(1, parseInt(url.searchParams.get('limit') || '24', 10) || 24), 100)
     const offset = (page - 1) * limit
 
     // Build query

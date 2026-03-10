@@ -69,7 +69,9 @@ export default function SharingPage() {
         setFollowSlug(data.follow_slug || '')
         setSharingEnabled(data.sharing_enabled || false)
       }
-    } catch {}
+    } catch (err) {
+      console.error('Failed to load sharing settings:', err)
+    }
   }
 
   const loadFollowers = async () => {
@@ -79,7 +81,9 @@ export default function SharingPage() {
         const data = await res.json()
         setFollowers(data.followers || [])
       }
-    } catch {}
+    } catch (err) {
+      console.error('Failed to load followers:', err)
+    }
     setLoadingFollowers(false)
   }
 
@@ -92,7 +96,9 @@ export default function SharingPage() {
         setIgUsername(data.username || '')
         setIgContacts(data.contacts || [])
       }
-    } catch {}
+    } catch (err) {
+      console.error('Failed to load Instagram connections:', err)
+    }
     setLoadingIg(false)
   }
 
@@ -180,10 +186,15 @@ export default function SharingPage() {
   }
 
   const removeFollower = async (id: string) => {
+    const previousFollowers = followers
+    setFollowers(prev => prev.filter(f => f.id !== id))
     try {
-      await fetch(`/api/followers?id=${id}`, { method: 'DELETE' })
-      setFollowers(prev => prev.filter(f => f.id !== id))
-    } catch {}
+      const res = await fetch(`/api/followers?id=${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Delete failed')
+    } catch (err) {
+      console.error('Failed to remove follower:', err)
+      setFollowers(previousFollowers) // Revert on failure
+    }
   }
 
   const copyFollowLink = useCallback(() => {

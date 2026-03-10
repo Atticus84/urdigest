@@ -1,5 +1,15 @@
 import { NewsletterContent, NewsletterSection } from '@/lib/ai/summarize'
 
+/** Escape HTML special characters to prevent injection in email templates */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 interface DigestEmailProps {
   newsletter: NewsletterContent
   date: string
@@ -78,7 +88,7 @@ export function DigestEmail({ newsletter, date, postCount, followerContext }: Di
           <!-- ====== GREETING + META ====== -->
           <tr>
             <td style="padding:24px 32px 4px;">
-              <p style="margin:0 0 16px;font-size:17px;line-height:1.55;color:${c.text};">${newsletter.greeting}</p>
+              <p style="margin:0 0 16px;font-size:17px;line-height:1.55;color:${c.text};">${escapeHtml(newsletter.greeting)}</p>
               <p style="margin:0;font-size:12px;color:${c.textMuted};text-transform:uppercase;letter-spacing:0.6px;font-weight:600;">${postCount} ${postCount === 1 ? 'story' : 'stories'} &nbsp;·&nbsp; ${readMin} min read</p>
             </td>
           </tr>
@@ -101,7 +111,7 @@ export function DigestEmail({ newsletter, date, postCount, followerContext }: Di
                 <tr>
                   <td style="padding:20px 24px;">
                     <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:${c.textMuted};text-transform:uppercase;letter-spacing:1px;">The Big Picture</p>
-                    <p style="margin:0;font-size:15px;line-height:1.65;color:${c.text};">${newsletter.big_picture}</p>
+                    <p style="margin:0;font-size:15px;line-height:1.65;color:${c.text};">${escapeHtml(newsletter.big_picture!)}</p>
                   </td>
                 </tr>
               </table>
@@ -187,13 +197,13 @@ function renderSection(
   const hasTalkingPoints = section.talking_points && section.talking_points.length > 0
   const hasKeyQuote = section.key_quote && section.key_quote.length > 0
   const hasTitle = section.title && section.title.length > 0
-  const headline = hasTitle ? section.title : section.headline
+  const headline = escapeHtml(hasTitle ? section.title! : section.headline)
   const hasLede = section.lede && section.lede.length > 0
 
   // Morning Brew condenses the headline INTO the body text as a bold lead-in.
   const bodyWithInlineHeadline = hasLede
-    ? `<b style="color:${colors.headline};">${headline}.</b> ${section.lede}`
-    : `<b style="color:${colors.headline};">${headline}.</b> ${section.body}`
+    ? `<b style="color:${colors.headline};">${headline}.</b> ${escapeHtml(section.lede!)}`
+    : `<b style="color:${colors.headline};">${headline}.</b> ${escapeHtml(section.body)}`
 
   return `
           <tr id="section-${index}">
@@ -201,7 +211,7 @@ function renderSection(
 
               <!-- Section label — ALL CAPS, colored, small -->
               <p style="margin:0 0 10px;font-size:11px;font-weight:700;color:${labelColor};text-transform:uppercase;letter-spacing:1.2px;line-height:1;">
-                ${section.content_type_emoji || section.emoji} ${section.content_type_label || 'POST'}${section.author_username ? ` &nbsp;·&nbsp; @${section.author_username}` : ''}
+                ${section.content_type_emoji || section.emoji} ${escapeHtml(section.content_type_label || 'POST')}${section.author_username ? ` &nbsp;·&nbsp; @${escapeHtml(section.author_username)}` : ''}
               </p>
 
               <!-- Headline + lede — bold title flows into the paragraph -->
@@ -209,7 +219,7 @@ function renderSection(
 
               <!-- Body — the deep explanation of the actual content -->
               ${hasLede ? `
-              <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:${colors.textLight};">${section.body}</p>
+              <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:${colors.textLight};">${escapeHtml(section.body)}</p>
               ` : ''}
 
               <!-- Key Quote — pull quote from the creator -->
@@ -217,7 +227,7 @@ function renderSection(
               <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">
                 <tr>
                   <td style="padding:12px 20px;border-left:3px solid ${colors.textMuted};background-color:transparent;">
-                    <p style="margin:0;font-size:15px;line-height:1.6;color:${colors.text};font-style:italic;">&ldquo;${section.key_quote}&rdquo;</p>
+                    <p style="margin:0;font-size:15px;line-height:1.6;color:${colors.text};font-style:italic;">&ldquo;${escapeHtml(section.key_quote!)}&rdquo;</p>
                   </td>
                 </tr>
               </table>
@@ -230,7 +240,7 @@ function renderSection(
                   <td style="padding:16px 18px;background-color:${colors.cardBg};border-left:3px solid ${labelColor};border-radius:0 4px 4px 0;">
                     <p style="margin:0 0 10px;font-size:10px;font-weight:700;color:${labelColor};text-transform:uppercase;letter-spacing:1px;">&#x1F4A1; Key Discoveries</p>
                     ${section.takeaways!.map(t => `
-                    <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:${colors.text};padding-left:16px;text-indent:-16px;"><span style="color:${labelColor};font-weight:700;">&#x2022;</span>&nbsp; ${t}</p>
+                    <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:${colors.text};padding-left:16px;text-indent:-16px;"><span style="color:${labelColor};font-weight:700;">&#x2022;</span>&nbsp; ${escapeHtml(t)}</p>
                     `).join('')}
                   </td>
                 </tr>
@@ -244,7 +254,7 @@ function renderSection(
                   <td style="padding:14px 18px;background-color:transparent;border:1px solid ${colors.divider};border-radius:4px;">
                     <p style="margin:0 0 8px;font-size:10px;font-weight:700;color:${colors.textMuted};text-transform:uppercase;letter-spacing:1px;">&#x1F4AC; Worth Discussing</p>
                     ${section.talking_points!.map(t => `
-                    <p style="margin:0 0 6px;font-size:13px;line-height:1.55;color:${colors.textLight};padding-left:14px;text-indent:-14px;"><span style="color:${colors.textMuted};">&#x2192;</span>&nbsp; ${t}</p>
+                    <p style="margin:0 0 6px;font-size:13px;line-height:1.55;color:${colors.textLight};padding-left:14px;text-indent:-14px;"><span style="color:${colors.textMuted};">&#x2192;</span>&nbsp; ${escapeHtml(t)}</p>
                     `).join('')}
                   </td>
                 </tr>
@@ -253,7 +263,7 @@ function renderSection(
 
               <!-- "Why you saved it" — italic aside -->
               ${section.why_you_saved_it ? `
-              <p style="margin:0 0 12px;font-size:13px;line-height:1.55;color:${colors.textMuted};font-style:italic;">${section.why_you_saved_it}</p>
+              <p style="margin:0 0 12px;font-size:13px;line-height:1.55;color:${colors.textMuted};font-style:italic;">${escapeHtml(section.why_you_saved_it)}</p>
               ` : ''}
 
               <!-- CTA — simple text link -->

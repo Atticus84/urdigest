@@ -15,8 +15,9 @@ function verifySignature(signature: string, body: string): boolean {
     return false
   }
 
-  const expectedSignature = 'sha1=' + crypto
-    .createHmac('sha1', appSecret)
+  // Meta sends X-Hub-Signature-256 header with SHA-256 HMAC
+  const expectedSignature = 'sha256=' + crypto
+    .createHmac('sha256', appSecret)
     .update(body)
     .digest('hex')
 
@@ -58,7 +59,7 @@ const MAX_PROCESSED_IDS = 1000 // Keep last 1000 message IDs in memory
 // Instagram webhook events (POST request)
 export async function POST(request: NextRequest) {
   try {
-    const signature = request.headers.get('x-hub-signature')
+    const signature = request.headers.get('x-hub-signature-256') || request.headers.get('x-hub-signature')
     const body = await request.text()
 
     console.log('📥 Instagram webhook POST received', {
