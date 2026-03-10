@@ -103,16 +103,14 @@ async function generateDigestForUser(user: any, step?: any) {
     ? <T>(id: string, fn: () => Promise<T>) => step.run(id, fn)
     : <T>(_id: string, fn: () => Promise<T>) => fn()
 
-  // Get unprocessed posts from the last 24 hours
+  // Get ALL unprocessed posts (not just last 24h — posts saved days ago
+  // shouldn't be silently dropped if they missed a digest window)
   const posts: SavedPost[] = await run('fetch-posts', async () => {
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-
     const { data, error } = await supabaseAdmin
       .from('saved_posts')
       .select('*')
       .eq('user_id', user.id)
       .eq('processed', false)
-      .gte('saved_at', yesterday)
       .order('saved_at', { ascending: false })
 
     if (error) {

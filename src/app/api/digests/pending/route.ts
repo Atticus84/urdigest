@@ -14,16 +14,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get unprocessed posts that would be included in the next digest
-    // Based on the digest logic: posts from last 24 hours that are unprocessed
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-
+    // Get ALL unprocessed posts that would be included in the next digest
     const { data: posts, error } = await supabase
       .from('saved_posts')
       .select('*')
       .eq('user_id', user.id)
       .eq('processed', false)
-      .gte('saved_at', yesterday)
       .order('saved_at', { ascending: false })
 
     if (error) {
